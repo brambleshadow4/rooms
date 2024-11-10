@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="./MersenneTwister.js"></script>
+	<style>
+		label {
+			display: inline-block;
+			text-align: right;
+			width: 100px;
+			padding-right: 10px;
+		}
+
+	</style>
+</head>
+<body>
+	
+	<div>
+		<label>Nodes: </label><input id='nodes' type="number" width="100px" value=20/>
+	</div>
+	<div>
+		<label>Seed: </label><input id='seed' type="number" width="100px"/>
+	</div>
+
+	<button onclick="generate()">Generate</button>
+
+
+	<div id='maze'></div>
+	<script>
+
+		let maze = [];
+		let at = [];
+
+
+		//document.getElementById('seed').value = Number(new Date().toISOString().substring(0,10).replace(/-/g,""));
+
+		document.getElementById('seed').value = 20240416;
+
+
+		function generate()
+		{
+			let nodeCount = document.getElementById('nodes').value;
+
+			let nodes = [];
+			let rand = new MersenneTwister(document.getElementById('seed').value);
+
+			for(let i=0; i < nodeCount; i++)
+			{
+				nodes.push({
+					nodeID: i,
+					linksTo: [],
+					reachableFrom: new Set(),
+					reachesTo: new Set(),
+					notReachableFrom: new Set()
+				});
+			}
+
+			for(let node of nodes)
+			{
+				node.reachableFrom.add(node);
+				node.reachesTo.add(node);
+				node.notReachableFrom = new Set(nodes);
+				node.notReachableFrom.delete(node);
+			}
+
+			let workList = nodes.slice();
+			let step = 0;
+
+
+			while(workList.length)
+			{	
+				let i = Math.floor(rand.random() * workList.length);
+				let node = workList[i];
+
+				if(node.notReachableFrom.size == 0)
+				{
+					workList.splice(i,1);
+					continue;
+				}
+
+				step++;
+
+				let otherNodes = [...node.notReachableFrom];
+
+				let linkNode = otherNodes[Math.floor(rand.random() * otherNodes.length)];
+
+				linkNode.linksTo.push(node);
+
+				for(let n of linkNode.reachableFrom)
+				{
+					for(let m of node.reachesTo)
+					{
+						n.reachesTo.add(m);
+						m.reachableFrom.add(n);
+						m.notReachableFrom.delete(n);
+					}
+				}
+
+				//console.log(`Step ${step}: Adding link from ` + linkNode.nodeID + " to " + node.nodeID);
+				//if(step == 5)
+				//	break;
+			}
+
+			workList = [nodes[0]]
+
+			nodes[0].weight = 1;
+
+			while(workList.length)
+			{
+				let node = workList.shift();
+
+				let nextWeight = node.weight / node.linksTo.length;
+
+				for(let n of node.linksTo)
+				{
+					if(n.weight == undefined || n.weight < nextWeight)
+					{
+						n.weight = nextWeight;
+						workList.push(n);
+					}
+				}
+			}
+
+			let minNode = 0;
+			for(let n of nodes)
+			{
+				if (n.weight < nodes[minNode].weight)
+					minNode = n.nodeID;
+				
+			}
+
+			console.log(minNode + " - " + nodes[minNode].weight);
+
+
+			maze = nodes;
+			at = 0;
+			renderRoom();
+		}
+
+		function renderRoom()
+		{
+			let node = maze[at];
+
+			let div = document.getElementById('maze');
+
+			div.innerHTML =`<div>You are in Room ${at}</div>`;
+
+			let nodeIDs = node.linksTo.map(x => x.nodeID);
+			nodeIDs.sort(function(a,b) {return b-a <0});
+
+			for(let n of nodeIDs)
+			{
+				let buttonDiv = document.createElement('div');
+				let button = document.createElement('button');
+				button.innerHTML = "Room " +n;
+				button.onclick = function(){
+					at = n;
+					renderRoom();
+				}
+
+				buttonDiv.appendChild(button);
+				div.appendChild(buttonDiv)
+
+			}
+
+
+		}
+
+	</script>
+</body>
+</html>

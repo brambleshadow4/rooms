@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="./MersenneTwister.js"></script>
+	<style>
+		label {
+			display: inline-block;
+			text-align: right;
+			width: 100px;
+			padding-right: 10px;
+		}
+
+		#maze {
+			margin: auto;
+			text-align: center;
+		}
+
+		canvas {
+			border: solid 2px gray;
+		}
+
+		html,body {
+			background-color: black;
+		}
+
+	</style>
+</head>
+<body>
+	
+	
+
+
+	<div id='maze'>
+		<canvas width=800 height=600></canvas>
+
+	</div>
+
+	<div id='images'>
+	</div>
+	<script>
+
+		let maze = [];
+		let at = [];
+		let SEED = 41;
+		let NODE_COUNT = 100; // 40/10 has issues
+
+		let rand = new MersenneTwister(SEED);
+
+		let IMG = {};
+
+		function addImage(sym, filename)
+		{
+			let div = document.getElementById('images');
+			let img = document.createElement('img');
+			img.src = "./img/" + filename;
+
+			img.id = "img-" + sym;
+			div.appendChild(img);
+			IMG[sym] = img
+		}
+
+		addImage("GRASS","grass.png");
+		addImage("SAND","sand.png");
+		addImage("STONE_BRICK","stoneBrick.png");
+
+		function generateNodes()
+		{
+
+			let nodes = [];
+			
+
+			for(let i=0; i < NODE_COUNT; i++)
+			{
+				nodes.push({
+					nodeID: i,
+					linksTo: [],
+					reachableFrom: new Set(),
+					reachesTo: new Set(),
+					notReachableFrom: new Set()
+				});
+			}
+
+			for(let node of nodes)
+			{
+				node.reachableFrom.add(node);
+				node.reachesTo.add(node);
+				node.notReachableFrom = new Set(nodes);
+				node.notReachableFrom.delete(node);
+			}
+
+			let workList = nodes.slice();
+			let step = 0;
+
+
+			while(workList.length)
+			{	
+				let i = Math.floor(rand.random() * workList.length);
+				let node = workList[i];
+
+				if(node.notReachableFrom.size == 0)
+				{
+					workList.splice(i,1);
+					continue;
+				}
+
+				step++;
+
+				let otherNodes = [...node.notReachableFrom];
+
+				let linkNode = otherNodes[Math.floor(rand.random() * otherNodes.length)];
+
+				linkNode.linksTo.push(node);
+
+				for(let n of linkNode.reachableFrom)
+				{
+					for(let m of node.reachesTo)
+					{
+						n.reachesTo.add(m);
+						m.reachableFrom.add(n);
+						m.notReachableFrom.delete(n);
+					}
+				}
+
+				//console.log(`Step ${step}: Adding link from ` + linkNode.nodeID + " to " + node.nodeID);
+				//if(step == 5)
+				//	break;
+			}
+
+			workList = [nodes[0]]
+
+			nodes[0].weight = 1;
+
+			while(workList.length)
+			{
+				let node = workList.shift();
+
+				let nextWeight = node.weight / node.linksTo.length;
+
+				for(let n of node.linksTo)
+				{
+					if(n.weight == undefined || n.weight < nextWeight)
+					{
+						n.weight = nextWeight;
+						workList.push(n);
+					}
+				}
+			}
+
+			let minNode = 0;
+			for(let n of nodes)
+			{
+				if (n.weight < nodes[minNode].weight)
+					minNode = n.nodeID;
+				
+			}
+
+			return nodes;
+		}
+
+
+		let sTemplate = {
+			bounds: [
+				[0,0],
+				[8,0],
+				[8,4],
+				[12,4],
+				[12,8],
+				[4,8],
+				[4,4],
+				[0,4]
+			],
+			exits: [
+				{line: [[12,5],[12,7]]},
+				{line: [[7,8], [5,8]]}
+			],
+		};
+
+		let rightTurnTemplate = {
+			bounds: [
+				[0,0],
+				[4,0],
+				[4,2],
+				[2,2],
+				[2,4],
+				[0,4]
+			],
+			exits: [
+				{line: [[4,0],[4,2]]},
+				{line: [[2,4],[0,4]]},
+			]
+		}
+
+		let uTurnTemplate = {
+			bounds: [
+				[0,0],
+				[6,0],
+				[6,2],
+				[0,2],
+			],
+			exits: [
+				{line: [[6,2],[4,2]]},
+				{line: [[2,2],[0,2]]},
+			]
+		}
+
+		let uTurnLongTemplate = {
+			bounds: [
+				[0,0],
+				[8,0],
+				[8,2],
+				[0,2],
+			],
+			exits: [
+				{line: [[8,2],[6,2]]},
+				{line: [[2,2],[0,2]]},
+			]
+		}
+
+
+		let squareTemplate = {
+			bounds: [
+				[0,0],
+				[8,0],
+				[8,8],
+				[0,8]
+			],
+			exits: [
+				{line: [[1,0],[3,0]]}, // North
+				{line: [[5,0],[7,0]]}, // North
+				{line: [[3,8],[1,8]]}, // South
+				{line: [[7,8],[5,8]]}, // South
+
+				{line: [[8,1],[8,3]]}, // East
+				{line: [[8,5],[8,7]]}, // East
+				{line: [[0,3],[0,1]]}, // West
+				{line: [[0,7],[0,5]]}, // West
+			],
+		}
+
+
+		function rotateTemplate(areaTemplate)
+		{
+			let area = JSON.parse(JSON.stringify(areaTemplate));
+
+			let maxX = area.bounds.reduce((acc,[x,y]) => Math.max(x, acc), -1);
+			area.bounds = area.bounds.map(([x,y]) => [y,maxX-x]);
+			area.exits = area.exits.map(exit => {return {line: [
+				[exit.line[0][1], maxX-exit.line[0][0]],
+				[exit.line[1][1], maxX-exit.line[1][0]],
+			]}});
+
+			return area;
+		}
+
+		function doesEntranceLineUpWithExit(line1, line2)
+		{
+			let a = line1[1]
+			let b = line1[0]
+			let a2 = line2[0]
+			let b2 = line2[1];
+			let compV2 = addV2(addV2(b2, a), scaleV2(addV2(b, a2), -1));
+			return compV2[0] == 0 && compV2[1] == 0;
+		}
+
+		function areEntranceAndExitTwoAway(area)
+		{
+			let diff = scaleV2(addV2(area.entrance[0], scaleV2(area.entrance[1],-1)), 2);
+			let line1 = area.entrance.map(p => addV2(p, diff));
+			let line2 =  area.entrance.map(p => addV2(p, scaleV2(diff,-1)));
+
+			for(let exit of area.exits)
+			{
+				if(equalV2(line1[0], exit.line[0]) && equalV2(line1[1], exit.line[1]))
+					return true;
+
+				if(equalV2(line2[0], exit.line[0]) && equalV2(line2[1], exit.line[1]))
+					return true;
+			}
+			return false;
+		}
+
+		function generateDungeonMap(nodes)
+		{
+			// create main maps
+
+			let dungeons = [];
+
+			for(let n of nodes)
+			{
+				// select tile
+				let area = JSON.parse(JSON.stringify(squareTemplate));
+
+
+				let img = ["GRASS","STONE_BRICK","SAND"][Math.floor(rand.random()* 3)]
+
+				area.sprites = [
+					{type: "tile", img, bounds: area.bounds}
+				];
+
+				// select entrance
+				let i = Math.floor(rand.random() * area.exits.length);
+				area.entrance = area.exits.splice(i,1)[0].line;
+
+				dungeons.push(area);
+			}
+
+			// generate position of all exists
+			// this needs to happen first to avoid having the u-turn overlap with exits
+
+			// add exits and connector dungeons
+			for(let i=0; i < nodes.length; i++)
+			{
+				let source = dungeons[i]
+				let allExits = source.exits;
+				source.exits = [];
+
+				if(allExits.length < nodes[i].linksTo.length + 1)
+				{
+					throw new Error("need a bigger room")
+				}
+
+				// this connection naively works, but
+
+				for(let node of nodes[i].linksTo)
+				{	
+					let j = Math.floor(rand.random() * allExits.length);
+
+					let exit = allExits.splice(j,1)[0];
+					source.exits.push(exit);
+
+					exit.connectsTo = node.nodeID;
+				}
+			}
+
+
+			// add exits and connector dungeons
+			for(let i=0; i < nodes.length; i++)
+			{
+				let source = dungeons[i];
+
+				let tileIMG = source.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || "GRASS";
+	
+				destinationLoop: for(let nextExit of source.exits)
+				{	
+					
+					var destinationID = nextExit.connectsTo
+					var destination = dungeons[destinationID];
+
+
+					// figure out what transition terrain we need
+
+
+					let a = destination.entrance[0];
+					let b = destination.entrance[1]
+					let a2 = nextExit.line[1]
+					let b2 = nextExit.line[0];
+
+					let diff1 = addV2(a, scaleV2(b, - 1));
+					let diff2 = addV2(a2, scaleV2(b2, - 1));
+
+
+					if(doesEntranceLineUpWithExit(destination.entrance, nextExit.line))
+					{
+						// lines are parallel - the naive conneciton works!
+
+					}
+					else if (diff1[0]*diff2[0] + diff1[1]*diff2[1] == 0)
+					{
+						// lines are perpendicular - use a 90 degree turn
+
+						let connectorArea = JSON.parse(JSON.stringify(rightTurnTemplate));
+
+
+
+						for(let k=0; k<4; k++)
+						{	
+							
+							if(doesEntranceLineUpWithExit(destination.entrance, connectorArea.exits[0].line) && 
+								doesEntranceLineUpWithExit(nextExit.line, connectorArea.exits[1].line))
+							{
+								nextExit.connectsTo = dungeons.length;
+								connectorArea.entrance = connectorArea.exits[1].line
+								connectorArea.exits.splice(1,1)[0];
+								connectorArea.exits[0].connectsTo = destinationID;
+								dungeons.push(connectorArea)
+								connectorArea.sprites = [{img: tileIMG, bounds: connectorArea.bounds, type: "tile"}]
+
+
+								continue destinationLoop;
+							}
+
+							if(doesEntranceLineUpWithExit(destination.entrance, connectorArea.exits[1].line) && 
+								doesEntranceLineUpWithExit(nextExit.line, connectorArea.exits[0].line))
+							{
+								nextExit.connectsTo = dungeons.length;
+								connectorArea.entrance = connectorArea.exits[0].line
+								connectorArea.exits.splice(0,1)[0];
+								connectorArea.exits[0].connectsTo = destinationID;
+								dungeons.push(connectorArea)
+								connectorArea.sprites = [{img: tileIMG, bounds: connectorArea.bounds, type: "tile"}]
+								continue destinationLoop;
+							}
+
+							connectorArea = rotateTemplate(connectorArea);
+						}
+
+						throw new Error("Failed to find a good rotation")
+					}
+					else
+					{
+						// u turn
+						let connectorArea = areEntranceAndExitTwoAway(destination) ? uTurnLongTemplate : uTurnTemplate;
+
+						connectorArea = JSON.parse(JSON.stringify(connectorArea));
+
+						for(let k=0; k<4; k++)
+						{	
+							
+							if(doesEntranceLineUpWithExit(destination.entrance, connectorArea.exits[0].line) && 
+								doesEntranceLineUpWithExit(nextExit.line, connectorArea.exits[1].line))
+							{
+								let no = Math.floor(rand.random() * 2);
+								let no2 = 1- no;
+
+								nextExit.connectsTo = dungeons.length;
+								connectorArea.entrance = connectorArea.exits[no].line
+								connectorArea.exits.splice(no,1)[0];
+								connectorArea.exits[0].connectsTo = destinationID;
+								dungeons.push(connectorArea)
+								connectorArea.sprites = [{img: tileIMG, bounds: connectorArea.bounds, type: "tile"}]
+								continue destinationLoop;
+							}
+
+							connectorArea = rotateTemplate(connectorArea);
+						}
+
+						throw new Error("Failed to find a good rotation")
+					}		
+				}
+			}
+
+			return dungeons;
+
+			// create connectors
+		}
+
+		let dungeons = generateDungeonMap(generateNodes());		
+		let ctx = document.getElementsByTagName('canvas')[0].getContext('2d');
+
+		let KeyPresses = {};
+
+
+		window.onkeydown = function(e)
+		{
+			KeyPresses[e.key] = true;
+		}
+		window.onkeyup = function(e)
+		{
+			KeyPresses[e.key] = false;
+		}
+
+		let x = 2;
+		let y = 2;
+		let terrain = [];
+
+
+		function gameLoop()
+		{
+			try
+			{
+				update()
+				draw();
+				requestAnimationFrame(gameLoop);
+			}
+			catch(e)
+			{
+				throw e;
+			}
+
+			
+		}
+
+		let counter2 = 1;
+
+		function update()
+		{
+			let points = [[x+.4, y+.4], [x-.4, y+.4],[x+.4, y-.4], [x-.4, y-.4]]
+			for(let area of terrain)
+			{
+
+				if(area.type && area.type.endsWith("transition") && area.connectsTo != undefined)
+				{
+					if(points.map(p => isPointInShape(p, area.bounds)).reduce((a,b) => a && b, true))
+					{
+						transitionDungeons(area);
+					}
+				}
+			}
+
+			if(transitionPercent >= 0)
+			{
+				transitionPercent += .05;
+				if(transitionPercent >= 1)
+					transitionPercent = 1;
+
+				for(let area of terrain)
+				{
+					if(area.transition == "out")
+					{
+						area.fade = transitionPercent;
+					}
+					if(area.transition == "in")
+					{
+						area.fade = 1 - transitionPercent;
+					}
+					if(area.transition == "left")
+					{
+						area.left = transitionPercent;
+						area.right = 1- transitionPercent;
+					}
+					if(area.transition == "right")
+					{
+						area.left = 1- transitionPercent;
+						area.right = transitionPercent;
+					}
+				}
+			}
+
+			if(transitionPercent == 1)
+			{
+				transitionPercent = -1;
+				for(let i=0; i < terrain.length; i++)
+				{
+					if(terrain[i].transition == "out")
+					{
+						terrain.splice(i, 1);
+						i--;
+					}
+					else
+					{
+						delete terrain[i].transition;
+					}
+				}
+			}
+
+			
+			let charSize = .4;
+			if(KeyPresses["ArrowUp"] && isPointInTerrain([x+charSize, y - .08 - charSize]) && isPointInTerrain([x-charSize, y - .08 - charSize]))
+			{
+				y -= .08;
+			}
+			if(KeyPresses["ArrowDown"] && isPointInTerrain([x+charSize, y + .08 + charSize]) && isPointInTerrain([x-charSize, y + .08 + charSize]))
+			{
+				y += .08;
+			}
+
+			if(KeyPresses["ArrowLeft"] && isPointInTerrain([x - .08 - charSize, y+charSize]) && isPointInTerrain([x - .08 - charSize, y-charSize]))
+			{
+				x -= .08;
+			}
+			if(KeyPresses["ArrowRight"] && isPointInTerrain([x + .08 + charSize, y+charSize]) && isPointInTerrain([x + .08 + charSize, y-charSize]))
+			{
+				x += .08;
+			}
+		}
+		// DEF dungeons
+
+		let dungeonTemplates = [
+		];
+
+		
+
+
+		let transitionPercent = -1;
+
+		function addV2(v1, v2)
+		{
+			return [v1[0] + v2[0], v1[1] + v2[1]];
+		}
+
+		function equalV2(v1,v2)
+		{
+			return v1[0] == v2[0] && v1[1] == v2[1]
+		}
+
+		function scaleV2(v, n)
+		{
+			return [n*v[0], n*v[1]];
+		}
+
+		function buildTransTerrain(trans, tileIMG)
+		{
+			let lines = trans.line;
+			let bounds = [lines[0], lines[1]];
+			let typ = "vtransition";
+			let left = 0;
+			let right = 1;
+
+			if(lines[0][0] == lines[1][0])
+			{
+				typ = "htransition";
+				if(lines[0][1] < lines[1][1])
+				{
+					right = 0;
+					left = 1
+				}
+			}
+			else
+			{
+				if(lines[0][0] < lines[1][0])
+				{
+					right = 0;
+					left = 1
+				}
+			}
+		
+			let area = {
+				bounds,
+				type: typ,
+				left,
+				right
+			}
+
+			let diff = addV2(bounds[1], scaleV2(bounds[0], -1));
+
+			diff = [diff[1], -diff[0]];
+			bounds.push(addV2(bounds[1], diff));
+
+			diff = addV2(bounds[2], scaleV2(bounds[1], -1));
+			diff = [diff[1], -diff[0]];
+			bounds.push(addV2(bounds[2], diff));
+
+			area.sprites = [
+				{type: "tile", bounds, img: tileIMG || "GRASS"}
+			]
+
+			if(trans.connectsTo != undefined)
+			{
+				area.connectsTo = trans.connectsTo;
+				area.connectsToLine = [bounds[2], bounds[3]];
+			}
+			return area;
+		}
+
+
+		function loadDungeon(dungeonNo)
+		{
+			let dungeon = JSON.parse(JSON.stringify(dungeons[dungeonNo]))
+			terrain = [dungeon];
+			inDungeon = dungeonNo;
+
+
+
+			tileIMG = dungeon.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || "GRASS"
+
+			if(dungeon.entrance)
+
+				terrain.push(buildTransTerrain({line: dungeon.entrance}, tileIMG));
+
+			for(let exit of dungeon.exits)
+			{
+				terrain.push(buildTransTerrain(exit, tileIMG));
+			}
+		}
+
+		function transitionDungeons(transitionArea)
+		{
+			let newDungeon = dungeons[transitionArea.connectsTo];
+
+			console.log("Loading " + transitionArea.connectsTo);
+
+			let copy = JSON.parse(JSON.stringify(newDungeon));
+
+			let diff = addV2(transitionArea.connectsToLine[0], scaleV2(newDungeon.entrance[0], -1));;
+
+			copy.bounds = copy.bounds.map(x => addV2(x, diff));
+			copy.entrance = copy.entrance = addV2(copy.entrance, diff);
+
+			copy.sprites.forEach(s => {
+				s.bounds = s.bounds.map(p => addV2(p, diff))
+			})
+
+
+			for(let area of terrain)
+			{
+				area.transition = "out";
+				if(area == transitionArea && area.left == 1)
+				{
+					area.transition = "right";
+				}
+				if(area == transitionArea && area.right == 1)
+				{
+					area.transition = "left";
+				}
+
+			}
+
+			transitionPercent = 0;
+
+			copy.transition = "in";
+			terrain.push(copy);
+
+
+			let tileIMG = newDungeon.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || null;
+			
+
+
+
+			for(let exit of copy.exits)
+			{
+				exit.line = exit.line.map(p => addV2(p, diff));
+				let area = buildTransTerrain(exit, tileIMG);
+				area.transition = "in";
+				terrain.push(area);
+			}
+
+			delete transitionArea.connectsTo;
+			delete transitionArea.connectsToLine;
+		}
+
+		let inDungeon = -1;
+
+
+		loadDungeon(0);
+
+
+		function isPointInTerrain(point)
+		{
+			for(let area of terrain)
+			{	
+				if(area.transition == "out")
+					continue;
+
+				if(isPointInShape(point, area.bounds))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		function isPointInShape(point, shape)
+		{
+			orientation = (p1,p2,p3) => Math.sign((p2[1] - p1[1])*(p3[0]-p2[0]) - (p2[0]-p1[0])*(p3[1]-p2[1]));
+
+			function doLinesIntersect(p1, q1, p2, q2)
+			{
+				// https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
+				let o1 = orientation(p1, q1, p2);
+				let o2 = orientation(p1, q1, q2);
+				let o3 = orientation(p2, q2, p1);
+				let o4 = orientation(p2, q2, q1);
+
+				if(o1 * o2 *o3 *o4 == 0)
+				{
+					return false;
+					//console.log(p1 + " " + q1 + " " + p2 + " " + q2)
+					//throw new Error("coliniear intersections not supported");
+				}
+
+				return (o1 != o2 && o3 != o4) 
+			}
+
+			let shapeLines = shape.map((p, i) => [p, shape[(i+1) % shape.length]]);
+			let lowestX = shape.map(([a,b]) => a).reduce((a,b)=>Math.min(a,b), 1/0) - 1;
+
+			let p1 = [lowestX, point[1]];
+			let q1 = point;
+
+			let intersections = shapeLines.map(([p2,q2]) => doLinesIntersect(p1, q1, p2, q2) ? 1 : 0)
+				.reduce((a,b)=> a+b, 0);
+
+			return intersections % 2 == 1;
+		}
+		
+		
+		let counterTS = null;
+		let counter = -1;
+
+
+		function draw()
+		{	
+			// DEF TILE_SIZE
+			let TILE_SIZE = 64;
+
+
+			ctx.clearRect(0, 0,800, 600);
+
+			/*ctx.globalCompositeOperation = "source-over";
+			ctx.fillStyle ="black"
+			ctx.rect(0, 0, 800, 600);
+			ctx.fill();*/
+
+			let lbI = Math.floor(x - 400/TILE_SIZE - 1)
+			let ubI = Math.floor(x + 400/TILE_SIZE + 2);
+
+			let lbJ= Math.floor(y - 300/TILE_SIZE - 1)
+			let ubJ = Math.floor(y + 300/TILE_SIZE + 2);
+
+			xOffset = Math.floor(x*TILE_SIZE) - 400;
+			yOffset = Math.floor(y*TILE_SIZE) - 300;
+
+
+	
+
+			// draw square tiles
+			for(let dung of terrain)
+			{
+				let bounds = dung.bounds;
+				for(let sprite of dung.sprites)
+				{
+					if(sprite.type == "tile")
+					{
+						let minX = sprite.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
+						let minY = sprite.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
+						let maxX = sprite.bounds.reduce((acc,p) => Math.max(acc,p[0]), -Infinity);
+						let maxY = sprite.bounds.reduce((acc,p) => Math.max(acc,p[1]), -Infinity);
+
+
+						for(let i = minX; i < maxX; i++)
+						{
+							for(let j = minY; j < maxY; j++)
+							{
+								if(isPointInShape([i+.5, j+.5], bounds) && dung.fade != 1)
+								{
+									ctx.globalCompositeOperation = "source-over";
+
+									ctx.drawImage(IMG[sprite.img], i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset);
+
+									if(dung.fade != 0 && dung.fade != undefined)
+									{
+										//ctx.fillStyle = "rgba(0,0,0, " + dung.fade + ")";
+										ctx.globalCompositeOperation = "destination-out";
+										let gradient = ctx.createLinearGradient(0, 0, 0, 100);
+
+										gradient.addColorStop(0, "rgba(0, 0, 0, " + dung.fade + ")");
+										gradient.addColorStop(1, "rgba(0, 0, 0, " + dung.fade +")");
+
+										ctx.fillStyle = gradient;
+										ctx.fillRect(i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset, TILE_SIZE, TILE_SIZE);
+									}
+								}	
+							}
+						}
+					}
+				}
+
+
+				
+			}
+
+			// draw character 
+
+			ctx.globalCompositeOperation = "source-over";
+
+			ctx.fillStyle = "#0000FF";
+			ctx.fillRect(800/2-20, 600/2-20, 40, 40)
+			//ctx.fillRect(0,0, 100,100)
+
+
+			// draw shading
+			for(let dung of terrain)
+			{
+				if(dung.type == "htransition")
+				{
+					bounds = dung.bounds;
+
+					let i = dung.bounds.reduce((a,b) => Math.min(a,b[0]), Infinity);
+					let j = dung.bounds.reduce((a,b) => Math.min(a,b[1]), Infinity);
+				
+					ctx.globalCompositeOperation = "destination-out";
+					let gradient = ctx.createLinearGradient(i*TILE_SIZE - xOffset+ 2*TILE_SIZE, j*TILE_SIZE - yOffset, i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset);
+
+					gradient.addColorStop(0, "rgba(0, 0, 0, "+ dung.left + ")");
+					gradient.addColorStop(1, "rgba(0, 0, 0, "+ dung.right + ")");
+					ctx.fillStyle = gradient;
+
+					ctx.fillRect(i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset, TILE_SIZE*2, TILE_SIZE*2);
+				}
+				if(dung.type == "vtransition")
+				{
+					bounds = dung.bounds;
+
+
+					let i = dung.bounds.reduce((a,b) => Math.min(a,b[0]), Infinity);
+					let j = dung.bounds.reduce((a,b) => Math.min(a,b[1]), Infinity);
+
+					ctx.globalCompositeOperation = "destination-out";
+					var gradient;
+
+					try
+					{
+						gradient = ctx.createLinearGradient(i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset, i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset + 2*TILE_SIZE);
+
+						gradient.addColorStop(0, "rgba(0, 0, 0, "+ dung.left + ")");
+						gradient.addColorStop(1, "rgba(0, 0, 0, "+ dung.right + ")");
+						ctx.fillStyle = gradient;
+						ctx.fillRect(i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset, TILE_SIZE*2, TILE_SIZE*2);
+					}
+					catch(e)
+					{
+						console.log(i*TILE_SIZE)
+						console.log(dung.bounds)
+						throw e
+					}
+				}
+			}
+		}
+
+		//draw()
+		gameLoop();
+
+	</script>
+</body>
+</html>
