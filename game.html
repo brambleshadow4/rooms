@@ -41,8 +41,8 @@
 
 		let maze = [];
 		let at = [];
-		let SEED = 41;
-		let NODE_COUNT = 100; // 40/10 has issues
+		let SEED = 42;
+		let NODE_COUNT = 10; // 40/10 has issues
 
 		let rand = new MersenneTwister(SEED);
 
@@ -157,24 +157,6 @@
 			return nodes;
 		}
 
-
-		let sTemplate = {
-			bounds: [
-				[0,0],
-				[8,0],
-				[8,4],
-				[12,4],
-				[12,8],
-				[4,8],
-				[4,4],
-				[0,4]
-			],
-			exits: [
-				{line: [[12,5],[12,7]]},
-				{line: [[7,8], [5,8]]}
-			],
-		};
-
 		let rightTurnTemplate = {
 			bounds: [
 				[0,0],
@@ -217,6 +199,9 @@
 		}
 
 
+		//////////////////////////////////////
+
+
 		let squareTemplate = {
 			bounds: [
 				[0,0],
@@ -236,6 +221,46 @@
 				{line: [[0,7],[0,5]]}, // West
 			],
 		}
+
+		let twoCellTemplate = {
+			bounds: [
+				[0,0],
+				[8,0],
+				[8,4],
+				[0,4]
+			],
+			exits: [
+				{line: [[1,0],[3,0]]}, // North
+				{line: [[5,0],[7,0]]}, // North
+				{line: [[3,4],[1,4]]}, // South
+				{line: [[7,4],[5,4]]}, // South
+
+				{line: [[8,1],[8,3]]}, // East
+				{line: [[0,3],[0,1]]}, // West
+			],
+		};
+
+		let twoCellAltTemplate = rotateTemplate(twoCellTemplate);
+
+		let threeCellTemplate = {
+			bounds: [
+				[0,0],
+				[8,0],
+				[8,4],
+				[4,4],
+				[4,8],
+				[0,8]
+			],
+			exits: [
+				{line: [[1,0],[3,0]]}, // North
+				{line: [[5,0],[7,0]]}, // North
+				{line: [[0,3],[0,1]]}, // West
+				{line: [[0,7],[0,5]]}, // West
+				{line: [[3,8],[1,8]]}, // South
+				{line: [[8,1],[8,3]]}, // East
+			],
+		}
+
 
 
 		function rotateTemplate(areaTemplate)
@@ -285,10 +310,32 @@
 
 			let dungeons = [];
 
-			for(let n of nodes)
+			for(let i=0; i < nodes.length; i++)
 			{
+				let n = nodes[i];
 				// select tile
-				let area = JSON.parse(JSON.stringify(squareTemplate));
+
+				let exitCount = n.linksTo.length + 1;
+				let possibleTemplates = [twoCellTemplate, twoCellAltTemplate, squareTemplate, threeCellTemplate].filter(x => x.exits.length >= exitCount);
+
+
+
+				if(possibleTemplates.length == 0)
+					throw new Error("no template is big enough")
+
+				let template = possibleTemplates[Math.floor(rand.random() * possibleTemplates.length)];
+
+				if(template == threeCellTemplate)
+				{
+					for(let j=0; j < Math.floor(rand.random()*4); j++)
+					{
+						template = rotateTemplate(template);
+					}
+				}
+
+				
+
+				let area = JSON.parse(JSON.stringify(template));
 
 
 				let img = ["GRASS","STONE_BRICK","SAND"][Math.floor(rand.random()* 3)]
@@ -298,8 +345,8 @@
 				];
 
 				// select entrance
-				let i = Math.floor(rand.random() * area.exits.length);
-				area.entrance = area.exits.splice(i,1)[0].line;
+				let j = Math.floor(rand.random() * area.exits.length);
+				area.entrance = area.exits.splice(j,1)[0].line;
 
 				dungeons.push(area);
 			}
@@ -314,7 +361,7 @@
 				let allExits = source.exits;
 				source.exits = [];
 
-				if(allExits.length < nodes[i].linksTo.length + 1)
+				if(allExits.length < nodes[i].linksTo.length)
 				{
 					throw new Error("need a bigger room")
 				}
