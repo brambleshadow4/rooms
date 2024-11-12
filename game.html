@@ -2,6 +2,7 @@
 <html>
 <head>
 	<script src="./MersenneTwister.js"></script>
+
 	<style>
 		label {
 			display: inline-block;
@@ -23,6 +24,10 @@
 			background-color: black;
 		}
 
+		#images {
+			display: none;
+		}
+
 	</style>
 </head>
 <body>
@@ -37,7 +42,9 @@
 
 	<div id='images'>
 	</div>
+	<script src="mazeGenerator.js"></script>
 	<script>
+
 
 		let maze = [];
 		let at = [];
@@ -62,100 +69,9 @@
 		addImage("GRASS","grass.png");
 		addImage("SAND","sand.png");
 		addImage("STONE_BRICK","stoneBrick.png");
+		addImage("GOLD","goldCoins.png");
 
-		function generateNodes()
-		{
-
-			let nodes = [];
-			
-
-			for(let i=0; i < NODE_COUNT; i++)
-			{
-				nodes.push({
-					nodeID: i,
-					linksTo: [],
-					reachableFrom: new Set(),
-					reachesTo: new Set(),
-					notReachableFrom: new Set()
-				});
-			}
-
-			for(let node of nodes)
-			{
-				node.reachableFrom.add(node);
-				node.reachesTo.add(node);
-				node.notReachableFrom = new Set(nodes);
-				node.notReachableFrom.delete(node);
-			}
-
-			let workList = nodes.slice();
-			let step = 0;
-
-
-			while(workList.length)
-			{	
-				let i = Math.floor(rand.random() * workList.length);
-				let node = workList[i];
-
-				if(node.notReachableFrom.size == 0)
-				{
-					workList.splice(i,1);
-					continue;
-				}
-
-				step++;
-
-				let otherNodes = [...node.notReachableFrom];
-
-				let linkNode = otherNodes[Math.floor(rand.random() * otherNodes.length)];
-
-				linkNode.linksTo.push(node);
-
-				for(let n of linkNode.reachableFrom)
-				{
-					for(let m of node.reachesTo)
-					{
-						n.reachesTo.add(m);
-						m.reachableFrom.add(n);
-						m.notReachableFrom.delete(n);
-					}
-				}
-
-				//console.log(`Step ${step}: Adding link from ` + linkNode.nodeID + " to " + node.nodeID);
-				//if(step == 5)
-				//	break;
-			}
-
-			workList = [nodes[0]]
-
-			nodes[0].weight = 1;
-
-			while(workList.length)
-			{
-				let node = workList.shift();
-
-				let nextWeight = node.weight / node.linksTo.length;
-
-				for(let n of node.linksTo)
-				{
-					if(n.weight == undefined || n.weight < nextWeight)
-					{
-						n.weight = nextWeight;
-						workList.push(n);
-					}
-				}
-			}
-
-			let minNode = 0;
-			for(let n of nodes)
-			{
-				if (n.weight < nodes[minNode].weight)
-					minNode = n.nodeID;
-				
-			}
-
-			return nodes;
-		}
+		
 
 		let rightTurnTemplate = {
 			bounds: [
@@ -261,6 +177,24 @@
 			],
 		}
 
+		let goldRoom = {
+			bounds: [
+				[0,0],
+				[8,0],
+				[8,8],
+				[0,8],
+			],
+			entrance: [[5,8],[3,8]],
+			exits: [
+				{line: [[3,0],[5,0]]}
+			],
+		};
+
+		goldRoom.sprites = [
+			{type: "tile", bounds: goldRoom.bounds, img: "STONE_BRICK"},
+			{type: "img", bounds: [[2,2],[2,6],[6,6],[6,2]], img: "GOLD"}
+		]
+
 
 
 		function rotateTemplate(areaTemplate)
@@ -312,7 +246,15 @@
 
 			for(let i=0; i < nodes.length; i++)
 			{
+
 				let n = nodes[i];
+
+				if(n == goldRoomNode)
+				{
+					dungeons.push(goldRoom);
+					continue;
+				}
+
 				// select tile
 
 				let exitCount = n.linksTo.length + 1;
@@ -354,6 +296,12 @@
 			// generate position of all exists
 			// this needs to happen first to avoid having the u-turn overlap with exits
 
+
+
+
+
+
+
 			// add exits and connector dungeons
 			for(let i=0; i < nodes.length; i++)
 			{
@@ -375,7 +323,7 @@
 					let exit = allExits.splice(j,1)[0];
 					source.exits.push(exit);
 
-					exit.connectsTo = node.nodeID;
+					exit.connectsTo = node.id;
 				}
 			}
 
@@ -491,7 +439,16 @@
 			// create connectors
 		}
 
-		let dungeons = generateDungeonMap(generateNodes());		
+		let [nodemap, startStopPoints] = generateNodes(rand,NODE_COUNT);
+
+		let goldRoomNode = {id: NODE_COUNT, linksTo: [nodemap[startStopPoints[0]]]};
+
+		nodemap.push(goldRoomNode);
+		nodemap[startStopPoints[1]].linksTo.push(goldRoomNode);
+
+		console.log(startStopPoints)
+
+		let dungeons = generateDungeonMap(nodemap);		
 		let ctx = document.getElementsByTagName('canvas')[0].getContext('2d');
 
 		let KeyPresses = {};
@@ -698,7 +655,7 @@
 
 
 
-			tileIMG = dungeon.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || "GRASS"
+			let tileIMG = dungeon.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || "GRASS"
 
 			if(dungeon.entrance)
 
@@ -768,7 +725,7 @@
 		let inDungeon = -1;
 
 
-		loadDungeon(0);
+		loadDungeon(startStopPoints[0]);
 
 
 		function isPointInTerrain(point)
@@ -855,6 +812,9 @@
 			for(let dung of terrain)
 			{
 				let bounds = dung.bounds;
+
+
+				// draw tiles + images
 				for(let sprite of dung.sprites)
 				{
 					if(sprite.type == "tile")
@@ -872,23 +832,52 @@
 								if(isPointInShape([i+.5, j+.5], bounds) && dung.fade != 1)
 								{
 									ctx.globalCompositeOperation = "source-over";
-
 									ctx.drawImage(IMG[sprite.img], i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset);
-
-									if(dung.fade != 0 && dung.fade != undefined)
-									{
-										//ctx.fillStyle = "rgba(0,0,0, " + dung.fade + ")";
-										ctx.globalCompositeOperation = "destination-out";
-										let gradient = ctx.createLinearGradient(0, 0, 0, 100);
-
-										gradient.addColorStop(0, "rgba(0, 0, 0, " + dung.fade + ")");
-										gradient.addColorStop(1, "rgba(0, 0, 0, " + dung.fade +")");
-
-										ctx.fillStyle = gradient;
-										ctx.fillRect(i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset, TILE_SIZE, TILE_SIZE);
-									}
 								}	
 							}
+						}
+					}
+					else if(sprite.type == "img")
+					{
+						let minX = sprite.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
+						let minY = sprite.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
+
+						ctx.drawImage(IMG[sprite.img], minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
+					}
+				}
+
+				for(let sprite of dung.sprites)
+				{
+					if(sprite.type != "tile")
+						continue;
+					
+					let minX = sprite.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
+					let minY = sprite.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
+					let maxX = sprite.bounds.reduce((acc,p) => Math.max(acc,p[0]), -Infinity);
+					let maxY = sprite.bounds.reduce((acc,p) => Math.max(acc,p[1]), -Infinity);
+
+
+					ctx.globalCompositeOperation = "destination-out";
+					for(let i = minX; i < maxX; i++)
+					{
+						for(let j = minY; j < maxY; j++)
+						{
+							if(isPointInShape([i+.5, j+.5], bounds) && dung.fade != 1)
+							{
+
+								if(dung.fade != 0 && dung.fade != undefined)
+								{
+									//ctx.fillStyle = "rgba(0,0,0, " + dung.fade + ")";
+									
+									let gradient = ctx.createLinearGradient(0, 0, 0, 100);
+
+									gradient.addColorStop(0, "rgba(0, 0, 0, " + dung.fade + ")");
+									gradient.addColorStop(1, "rgba(0, 0, 0, " + dung.fade +")");
+
+									ctx.fillStyle = gradient;
+									ctx.fillRect(i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset, TILE_SIZE, TILE_SIZE);
+								}
+							}	
 						}
 					}
 				}
