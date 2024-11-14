@@ -36,7 +36,7 @@
 
 
 	<div id='maze'>
-		<canvas width=800 height=600></canvas>
+		<canvas width=1200 height=800></canvas>
 
 	</div>
 
@@ -1010,27 +1010,30 @@
 		let counter = -1;
 
 
+		let CANVAS_WIDTH = 1200;
+		let CANVAS_HEIGHT = 800;
+
 		function draw()
 		{	
 			// DEF TILE_SIZE
 			let TILE_SIZE = 64;
 
 
-			ctx.clearRect(0, 0,800, 600);
+			ctx.clearRect(0, 0,CANVAS_WIDTH, CANVAS_HEIGHT);
 
 			/*ctx.globalCompositeOperation = "source-over";
 			ctx.fillStyle ="black"
 			ctx.rect(0, 0, 800, 600);
 			ctx.fill();*/
 
-			let lbI = Math.floor(x - 400/TILE_SIZE - 1)
-			let ubI = Math.floor(x + 400/TILE_SIZE + 2);
+			let lbI = Math.floor(x - CANVAS_WIDTH/2/TILE_SIZE - 1)
+			let ubI = Math.floor(x + CANVAS_WIDTH/2/TILE_SIZE + 2);
 
-			let lbJ= Math.floor(y - 300/TILE_SIZE - 1)
-			let ubJ = Math.floor(y + 300/TILE_SIZE + 2);
+			let lbJ= Math.floor(y - CANVAS_HEIGHT/2/TILE_SIZE - 1)
+			let ubJ = Math.floor(y + CANVAS_HEIGHT/2/TILE_SIZE + 2);
 
-			xOffset = Math.floor(x*TILE_SIZE) - 400;
-			yOffset = Math.floor(y*TILE_SIZE) - 300;
+			xOffset = Math.floor(x*TILE_SIZE) - CANVAS_WIDTH/2;
+			yOffset = Math.floor(y*TILE_SIZE) - CANVAS_HEIGHT/2;
 
 
 	
@@ -1118,7 +1121,7 @@
 			ctx.globalCompositeOperation = "source-over";
 
 			ctx.fillStyle = "#0000FF";
-			ctx.fillRect(800/2-20, 600/2-20, 40, 40)
+			ctx.fillRect(CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20, 40, 40)
 			//ctx.fillRect(0,0, 100,100)
 
 
