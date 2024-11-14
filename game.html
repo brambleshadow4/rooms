@@ -73,8 +73,6 @@
 		addImage("GOLD","goldCoins.png");
 		addImage("POND","pond.png");
 
-		
-
 		let rightTurnTemplate = {
 			bounds: [
 				[0,0],
@@ -120,39 +118,20 @@
 		//////////////////////////////////////
 
 
-		let squareTemplate = {
-			bounds: [
-				[0,0],
-				[8,0],
-				[8,8],
-				[0,8]
-			],
-			exits: [
-				{line: [[1,0],[3,0]]}, // North
-				{line: [[5,0],[7,0]]}, // North
-				{line: [[3,8],[1,8]]}, // South
-				{line: [[7,8],[5,8]]}, // South
-
-				{line: [[8,1],[8,3]]}, // East
-				{line: [[8,5],[8,7]]}, // East
-				{line: [[0,3],[0,1]]}, // West
-				{line: [[0,7],[0,5]]}, // West
-			],
-		}
 
 		let smallSquareTemplate = {
 			bounds: [
-				[0,0],
-				[6,0],
-				[6,6],
-				[0,6]
+				[1,1],
+				[5,1],
+				[5,5],
+				[1,5]
 			],
 			exits: [
-				{line: [[2,0],[4,0]]}, // North
-				{line: [[4,6],[2,6]]}, // South
+				{line: [[2,1],[4,1]]}, // North
+				{line: [[4,5],[2,5]]}, // South
 
-				{line: [[6,2],[6,4]]}, // East
-				{line: [[0,4],[0,2]]}, // West
+				{line: [[5,2],[5,4]]}, // East
+				{line: [[1,4],[1,2]]}, // West
 			],
 		}
 
@@ -164,13 +143,13 @@
 				[0,4]
 			],
 			exits: [
-				{line: [[1,0],[3,0]]}, // North
+				{line: [[8,1],[8,3]]}, // East
 				{line: [[5,0],[7,0]]}, // North
-				{line: [[3,4],[1,4]]}, // South
 				{line: [[7,4],[5,4]]}, // South
 
-				{line: [[8,1],[8,3]]}, // East
 				{line: [[0,3],[0,1]]}, // West
+				{line: [[1,0],[3,0]]}, // North
+				{line: [[3,4],[1,4]]}, // South
 			],
 		};
 
@@ -184,12 +163,15 @@
 				[0,8]
 			],
 			exits: [
-				{line: [[1,0],[3,0]]}, // North
 				{line: [[5,0],[7,0]]}, // North
+				{line: [[8,1],[8,3]]}, // East
+
+				{line: [[1,0],[3,0]]}, // North
 				{line: [[0,3],[0,1]]}, // West
+
 				{line: [[0,7],[0,5]]}, // West
 				{line: [[3,8],[1,8]]}, // South
-				{line: [[8,1],[8,3]]}, // East
+				
 			],
 		}
 
@@ -264,31 +246,110 @@
 			{
 				min: 2,
 				max: 6,
-				weight: 0,
+				weight: 1,
 				generate: twoCellGenerator
 			},
 			{
 				min: 2,
 				max: 6,
-				weight: 0,
+				weight: 1,
 				generate: threeCellGenerator
 			},
 			{
 				min: 2,
 				max: 4,
-				weight: 100,
+				weight: 6,
 				generate: smallSquareGenerator
 			}
 		];
 
 		let allTiles = ["GRASS","STONE_BRICK","SAND"]
 
-		function largeSquareGenerator(rand, exits)
+		function largeSquareGenerator(rand, exitCount)
 		{
-			let area = JSON.parse(JSON.stringify(squareTemplate));
+			let area = JSON.parse(JSON.stringify({
+				bounds: [
+					[0,0],
+					[8,0],
+					[8,8],
+					[0,8]
+				],
+				exits: [
+					{line: [[0,3],[0,1]]}, // West
+					{line: [[1,0],[3,0]]}, // North
+					
+					{line: [[5,0],[7,0]]}, // North
+					{line: [[8,1],[8,3]]}, // East
+
+					{line: [[8,5],[8,7]]}, // East
+					{line: [[7,8],[5,8]]}, // South
+
+
+					{line: [[3,8],[1,8]]}, // South
+					{line: [[0,7],[0,5]]}, // West	
+				],
+			}));
+
+			let posExits = [0,1,2,3,4,5,6,7];
+			let exitSet = new Set();
+
+			for(let i=0; i<exitCount-1; i++)
+			{
+				let [e] = posExits.splice(Math.floor(rand.random() * posExits.length), 1);
+				exitSet.add(e);
+			}
+
+			
+			let crit1 = (exitSet.has(0) || exitSet.has(1)) && (exitSet.has(4) || exitSet.has(5));
+			let crit2 = (exitSet.has(2) || exitSet.has(3)) && (exitSet.has(6) || exitSet.has(7));
+
+			if(crit1 || crit2)
+			{
+				let [e] = posExits.splice(Math.floor(rand.random() * posExits.length), 1);
+				exitSet.add(e);
+			}
+			else
+			{
+				let satisfiers = [];
+				if((exitSet.has(0) || exitSet.has(1)) && !crit1)
+				{
+					satisfiers.push(4)
+					satisfiers.push(5)
+				}
+				if((exitSet.has(4) || exitSet.has(5)) && !crit1)
+				{
+					satisfiers.push(0)
+					satisfiers.push(1)
+				}
+				if((exitSet.has(2) || exitSet.has(3)) && !crit2)
+				{
+					satisfiers.push(6)
+					satisfiers.push(7)
+				}
+				if((exitSet.has(6) || exitSet.has(7)) && !crit2)
+				{
+					satisfiers.push(2)
+					satisfiers.push(3)
+				}
+
+				let [e] = satisfiers.splice(Math.floor(rand.random() * satisfiers.length), 1);
+				exitSet.add(e);
+			}
+
+
+			let newExits = []
+			for(let e of exitSet)
+			{
+				newExits.push(area.exits[e]);
+			}
+
+			area.exits = newExits
+
 			area.sprites = [
 				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds} 
 			];
+
+
 			return area;
 		}
 
@@ -307,11 +368,10 @@
 			return area;
 		}
 
-		function threeCellGenerator(rand, exits)
+		function threeCellGenerator(rand, exitCount)
 		{
 			let area = JSON.parse(JSON.stringify(threeCellTemplate));
 			
-
 			for(let j=0; j < Math.floor(rand.random()*4); j++)
 			{
 				area = rotateTemplate(area);
@@ -321,11 +381,36 @@
 				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
 			];
 
+			let posExits = new Set([0,1,2,3,4,5]);
+			let exitSet = new Set();
+
+			let e1 = Math.floor(rand.random()*2)
+			let e2 = Math.floor(rand.random()*2)+4;
+
+			exitSet.add(e1)
+			exitSet.add(e2);
+			posExits.delete(e1);
+			posExits.delete(e2);
+
+			for(let i=2; i<exitCount; i++)
+			{
+				let [e] = [...posExits].splice(Math.floor(rand.random() * posExits.size), 1);
+				posExits.delete(e)
+				exitSet.add(e);
+			}
+
+			let newExits = []
+			for(let e of exitSet)
+			{
+				newExits.push(area.exits[e]);
+			}
+
+			area.exits = newExits
+
 			return area;
 		}
 
-
-		function twoCellGenerator(rand, exits)
+		function twoCellGenerator(rand, exitCount)
 		{
 			let area = JSON.parse(JSON.stringify(twoCellTemplate));
 			
@@ -335,6 +420,49 @@
 
 			area.sprites = [
 				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
+			];
+
+
+			let posExits = new Set([0,1,2,3,4,5]);
+			let exitSet = new Set();
+
+			for(let i=0; i<exitCount-1; i++)
+			{
+				let [e] = [...posExits].splice(Math.floor(rand.random() * posExits.size), 1);
+				posExits.delete(e)
+				exitSet.add(e);
+			}
+
+			let crit1 = (exitSet.has(0) || exitSet.has(1) || exitSet.has(2));
+			let crit2 = (exitSet.has(3) || exitSet.has(4) || exitSet.has(5));
+
+			if(crit1 && !crit2)
+			{
+				posExits.delete(0)
+				posExits.delete(1)
+				posExits.delete(2)
+			}
+			if(crit2 && !crit1)
+			{
+				posExits.delete(3)
+				posExits.delete(4)
+				posExits.delete(5)
+			}
+
+			let [e] = [...posExits].splice(Math.floor(rand.random() * posExits.count), 1);
+			exitSet.add(e);
+
+
+			let newExits = []
+			for(let e of exitSet)
+			{
+				newExits.push(area.exits[e]);
+			}
+
+			area.exits = newExits
+
+			area.sprites = [
+				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds} 
 			];
 
 			return area;
@@ -394,12 +522,6 @@
 
 			// generate position of all exists
 			// this needs to happen first to avoid having the u-turn overlap with exits
-
-
-
-
-
-
 
 			// add exits and connector dungeons
 			for(let i=0; i < nodes.length; i++)
@@ -468,7 +590,6 @@
 
 						for(let k=0; k<4; k++)
 						{	
-							
 							if(doesEntranceLineUpWithExit(destination.entrance, connectorArea.exits[0].line) && 
 								doesEntranceLineUpWithExit(nextExit.line, connectorArea.exits[1].line))
 							{
@@ -545,7 +666,7 @@
 		nodemap.push(goldRoomNode);
 		nodemap[startStopPoints[1]].linksTo.push(goldRoomNode);
 
-		console.log(startStopPoints)
+		//console.log(startStopPoints)
 
 		let dungeons = generateDungeonMap(nodemap);		
 		let ctx = document.getElementsByTagName('canvas')[0].getContext('2d');
@@ -752,6 +873,13 @@
 			terrain = [dungeon];
 			inDungeon = dungeonNo;
 
+			while(!isPointInShape([x,y], dungeon.bounds))
+			{
+				if(x == y)
+					x += 1
+				else
+					y+= 1;
+			}
 
 
 			let tileIMG = dungeon.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || "GRASS"
