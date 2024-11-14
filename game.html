@@ -219,18 +219,26 @@
 			return compV2[0] == 0 && compV2[1] == 0;
 		}
 
-		function areEntranceAndExitTwoAway(area)
+		function isExitParallelWithExit(exit, area)
 		{
-			let diff = scaleV2(addV2(area.entrance[0], scaleV2(area.entrance[1],-1)), 2);
-			let line1 = area.entrance.map(p => addV2(p, diff));
-			let line2 =  area.entrance.map(p => addV2(p, scaleV2(diff,-1)));
+			let allExits = area.exits.map(x => x.line);
+			allExits.push(area.entrance);
 
-			for(let exit of area.exits)
+
+
+			let diff = scaleV2(addV2(exit[0], scaleV2(exit[1],-1)), 2);
+			let line1 = exit.map(p => addV2(p, diff));
+			let line2 =  exit.map(p => addV2(p, scaleV2(diff,-1)));
+
+			for(let ex1 of allExits)
 			{
-				if(equalV2(line1[0], exit.line[0]) && equalV2(line1[1], exit.line[1]))
+				if(equalV2(exit[0], ex1[0]) && equalV2(exit[1], ex1[1]))
+					continue;
+
+				if(equalV2(line1[0], ex1[0]) && equalV2(line1[1], ex1[1]))
 					return true;
 
-				if(equalV2(line2[0], exit.line[0]) && equalV2(line2[1], exit.line[1]))
+				if(equalV2(line2[0], ex1[0]) && equalV2(line2[1], ex1[1]))
 					return true;
 			}
 			return false;
@@ -624,7 +632,10 @@
 					else
 					{
 						// u turn
-						let connectorArea = areEntranceAndExitTwoAway(destination) ? uTurnLongTemplate : uTurnTemplate;
+
+
+						let tooClose = isExitParallelWithExit(destination.entrance, destination) || isExitParallelWithExit(nextExit.line, source)
+						let connectorArea = tooClose ? uTurnLongTemplate : uTurnTemplate;
 
 						connectorArea = JSON.parse(JSON.stringify(connectorArea));
 
@@ -951,8 +962,8 @@
 
 		let inDungeon = -1;
 
-
-		loadDungeon(startStopPoints[0]);
+		loadDungeon(8)
+		//loadDungeon(startStopPoints[0]);
 
 
 		function isPointInTerrain(point)
