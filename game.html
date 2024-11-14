@@ -48,8 +48,8 @@
 
 		let maze = [];
 		let at = [];
-		let SEED = 42;
-		let NODE_COUNT = 10; // 40/10 has issues
+		let SEED = 45;
+		let NODE_COUNT = 10;
 
 		let rand = new MersenneTwister(SEED);
 
@@ -69,7 +69,9 @@
 		addImage("GRASS","grass.png");
 		addImage("SAND","sand.png");
 		addImage("STONE_BRICK","stoneBrick.png");
+
 		addImage("GOLD","goldCoins.png");
+		addImage("POND","pond.png");
 
 		
 
@@ -138,6 +140,22 @@
 			],
 		}
 
+		let smallSquareTemplate = {
+			bounds: [
+				[0,0],
+				[6,0],
+				[6,6],
+				[0,6]
+			],
+			exits: [
+				{line: [[2,0],[4,0]]}, // North
+				{line: [[4,6],[2,6]]}, // South
+
+				{line: [[6,2],[6,4]]}, // East
+				{line: [[0,4],[0,2]]}, // West
+			],
+		}
+
 		let twoCellTemplate = {
 			bounds: [
 				[0,0],
@@ -155,8 +173,6 @@
 				{line: [[0,3],[0,1]]}, // West
 			],
 		};
-
-		let twoCellAltTemplate = rotateTemplate(twoCellTemplate);
 
 		let threeCellTemplate = {
 			bounds: [
@@ -238,6 +254,93 @@
 			return false;
 		}
 
+		let roomGenerators = [
+			{
+				min: 2,
+				max: 8,
+				weight: 1,
+				generate: largeSquareGenerator
+			},
+			{
+				min: 2,
+				max: 6,
+				weight: 0,
+				generate: twoCellGenerator
+			},
+			{
+				min: 2,
+				max: 6,
+				weight: 0,
+				generate: threeCellGenerator
+			},
+			{
+				min: 2,
+				max: 4,
+				weight: 100,
+				generate: smallSquareGenerator
+			}
+		];
+
+		let allTiles = ["GRASS","STONE_BRICK","SAND"]
+
+		function largeSquareGenerator(rand, exits)
+		{
+			let area = JSON.parse(JSON.stringify(squareTemplate));
+			area.sprites = [
+				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds} 
+			];
+			return area;
+		}
+
+		function smallSquareGenerator(rand, exits)
+		{
+			let area = JSON.parse(JSON.stringify(smallSquareTemplate));
+			area.sprites = [
+				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds} 
+			];
+
+			if(rand.random() > .5)
+			{
+				area.sprites.push({type: "img", img: "POND", bounds: [[2,2],[4,4]]});
+			}
+
+			return area;
+		}
+
+		function threeCellGenerator(rand, exits)
+		{
+			let area = JSON.parse(JSON.stringify(threeCellTemplate));
+			
+
+			for(let j=0; j < Math.floor(rand.random()*4); j++)
+			{
+				area = rotateTemplate(area);
+			}
+
+			area.sprites = [
+				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
+			];
+
+			return area;
+		}
+
+
+		function twoCellGenerator(rand, exits)
+		{
+			let area = JSON.parse(JSON.stringify(twoCellTemplate));
+			
+
+			if(rand.random() >= .5)
+				area = rotateTemplate(area);
+
+			area.sprites = [
+				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
+			];
+
+			return area;
+		}
+
+
 		function generateDungeonMap(nodes)
 		{
 			// create main maps
@@ -258,34 +361,30 @@
 				// select tile
 
 				let exitCount = n.linksTo.length + 1;
-				let possibleTemplates = [twoCellTemplate, twoCellAltTemplate, squareTemplate, threeCellTemplate].filter(x => x.exits.length >= exitCount);
+				let possibleGenerators = roomGenerators.filter(gen => gen.min <= exitCount && exitCount <= gen.max);
+
+				let sum = possibleGenerators.reduce((acc, gen) => acc + gen.weight, 0);
+				let at = 0;
 
 
-
-				if(possibleTemplates.length == 0)
+ 
+				if(possibleGenerators.length == 0)
 					throw new Error("no template is big enough")
 
-				let template = possibleTemplates[Math.floor(rand.random() * possibleTemplates.length)];
 
-				if(template == threeCellTemplate)
+				var generator;
+				for(let gen of possibleGenerators)
 				{
-					for(let j=0; j < Math.floor(rand.random()*4); j++)
+					at += gen.weight/sum;
+					if(rand.random() <= at)
 					{
-						template = rotateTemplate(template);
+						generator = gen;
+						break;
 					}
 				}
 
-				
-
-				let area = JSON.parse(JSON.stringify(template));
-
-
-				let img = ["GRASS","STONE_BRICK","SAND"][Math.floor(rand.random()* 3)]
-
-				area.sprites = [
-					{type: "tile", img, bounds: area.bounds}
-				];
-
+				let area = generator.generate(rand, exitCount);
+			
 				// select entrance
 				let j = Math.floor(rand.random() * area.exits.length);
 				area.entrance = area.exits.splice(j,1)[0].line;
