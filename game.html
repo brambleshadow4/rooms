@@ -72,8 +72,9 @@
 
 		let maze = [];
 		let at = [];
-		let SEED = 42;
-		let NODE_COUNT = 15;
+		let SEED = 43;
+		let NODE_COUNT = 30;
+		let TILE_SIZE = 64;
 
 		let rand = new MersenneTwister(SEED);
 
@@ -101,6 +102,10 @@
 		addImage("ARROW_R","arrow_r.png");
 		addImage("ARROW_U","arrow_u.png");
 		addImage("ARROW_D","arrow_d.png");
+		addImage("ARROW_LH","arrow_lh.png");
+		addImage("ARROW_RH","arrow_rh.png");
+		addImage("ARROW_UH","arrow_uh.png");
+		addImage("ARROW_DH","arrow_dh.png");
 
 		let rightTurnTemplate = {
 			bounds: [
@@ -707,17 +712,28 @@
 		nodemap.push(goldRoomNode);
 		nodemap[startStopPoints[1]].linksTo.push(goldRoomNode);
 
-		//console.log(startStopPoints)
+		console.log(startStopPoints)
 
 		let dungeons = generateDungeonMap(nodemap);		
 		let ctx = document.getElementsByTagName('canvas')[0].getContext('2d');
 
 		let KeyPresses = {};
 
+		let charBuffer = [];
+		let lastClick = {};
+
+		document.getElementsByTagName('canvas')[0].onmousedown = function(e)
+		{
+			lastClick = e;
+		}
 
 		window.onkeydown = function(e)
 		{
 			KeyPresses[e.key] = true;
+			if(e.key.length == 1)
+				charBuffer += e.key;
+			if(e.key == "Backspace")
+				charBuffer += "\b";
 		}
 		window.onkeyup = function(e)
 		{
@@ -747,9 +763,16 @@
 
 		let counter2 = 1;
 
+		let labelTarget = null;
+
+
 		function update()
 		{
-			let points = [[x+.4, y+.4], [x-.4, y+.4],[x+.4, y-.4], [x-.4, y-.4]]
+			let points = [[x+.4, y+.4], [x-.4, y+.4],[x+.4, y-.4], [x-.4, y-.4]];
+			let mainRoom = terrain.filter(x => x.isRoom)[0] || {}
+
+
+
 			for(let area of terrain)
 			{
 
@@ -757,6 +780,7 @@
 				{
 					if(points.map(p => isPointInShape(p, area.bounds)).reduce((a,b) => a && b, true))
 					{
+						labelTarget = null
 						transitionDungeons(area);
 					}
 				}
@@ -827,6 +851,39 @@
 			{
 				x += .08;
 			}
+
+
+			if(mainRoom.isRoom)
+			{
+				if(lastClick.x != undefined)
+				{
+					labelTarget= null;
+					for(let i=0; i< mainRoom.exits.length; i++)
+					{
+						let [x,y,_] = getExitArrowCoords(mainRoom.exits[i]);
+						x = x*TILE_SIZE - xOffset;
+						y = y*TILE_SIZE - yOffset;
+
+						if(x <= lastClick.x && lastClick.x < x + TILE_SIZE*2 && y <= lastClick.y && lastClick.y < y + TILE_SIZE*2)
+						{
+							labelTarget = mainRoom.parent.exits[i];
+							break
+						}
+					}
+				}
+			}
+
+			if(mainRoom.isRoom && charBuffer.length)
+			{
+				labelTarget = labelTarget || mainRoom.parent;
+
+				labelTarget.label = labelTarget.label || "";
+				labelTarget.label = (labelTarget.label + charBuffer).replace(/.[\b]|^[\b]+/g,"");
+			}
+
+
+			charBuffer = "";
+			lastClick = {};
 		}
 		// DEF dungeons
 
@@ -951,7 +1008,9 @@
 
 			copy.sprites.forEach(s => {
 				s.bounds = s.bounds.map(p => addV2(p, diff))
-			})
+			});
+
+			copy.parent = dungeons[transitionArea.connectsTo]
 
 
 			for(let area of terrain)
@@ -992,8 +1051,8 @@
 
 		let inDungeon = -1;
 
-		loadDungeon(8)
-		//loadDungeon(startStopPoints[0]);
+		//loadDungeon(8)
+		loadDungeon(startStopPoints[0]);
 
 
 		function isPointInTerrain(point)
@@ -1054,14 +1113,30 @@
 		let CANVAS_WIDTH = 1200;
 		let CANVAS_HEIGHT = 800;
 
+		function getExitArrowCoords(exit)
+		{
+
+			let minX = exit.line.reduce((acc,p) => Math.min(acc,p[0]), Infinity) - .5;
+			let minY = exit.line.reduce((acc,p) => Math.min(acc,p[1]), Infinity) - .5;
+			var img;
+
+			if(exit.line[0][1] == exit.line[1][1])
+			{
+				img = (exit.line[0][0] > exit.line[1][0]) ? "ARROW_D" : "ARROW_U";
+				minX += 1
+			}
+			else
+			{
+				minY += 1;
+				img = (exit.line[0][1] > exit.line[1][1]) ? "ARROW_L" : "ARROW_R";
+			}
+
+			return [minX, minY, img];
+		}
+
 		function draw()
 		{	
-			// DEF TILE_SIZE
-			let TILE_SIZE = 64;
-
 			let mainRoom = terrain.filter(x => x.isRoom)[0] || {}
-
-
 			ctx.clearRect(0, 0,CANVAS_WIDTH, CANVAS_HEIGHT);
 
 			/*ctx.globalCompositeOperation = "source-over";
@@ -1117,13 +1192,73 @@
 						ctx.drawImage(IMG[sprite.img], minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
 					}
 				}
+			}
+
+			for(let dung of terrain)
+			{
+				if(dung.parent && dung.parent.label)
+				{
+
+					let minX = dung.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
+					let minY = dung.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
+
+					ctx.fillStyle = "#0000FF";
+					ctx.font = "20px Arial";
+					ctx.textAlign = "left";
+
+					ctx.fillText(dung.parent.label, minX*TILE_SIZE - xOffset + 5, minY*TILE_SIZE - yOffset+20);
+					
+				}
+
+				// draw exit arrows
+				if(dung.isRoom)
+				{
+					for(let i=0; i < dung.exits.length; i++)
+					{
+						let [minX,minY,img] = getExitArrowCoords(dung.exits[i]);
+						ctx.drawImage(IMG[img], minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
+
+						if(dung.parent.exits[i].label)
+						{
+							ctx.fillStyle = "#0000FF";
+							ctx.font = "20px Arial";
+							ctx.textAlign = "center";
+							ctx.fillText(
+								dung.parent.exits[i].label,
+								minX*TILE_SIZE - xOffset + TILE_SIZE/2,
+								minY*TILE_SIZE - yOffset+TILE_SIZE+20);
+						}
+
+					}
+
+				}	
+			
+			}
+
+			
+
+			
+
+			// draw character 
+
+			ctx.globalCompositeOperation = "source-over";
+
+			ctx.fillStyle = "#0000FF";
+			ctx.fillRect(CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20, 40, 40)
+			//ctx.fillRect(0,0, 100,100)
 
 
+			
+
+
+			// draw shading
+			for(let dung of terrain)
+			{
 				for(let sprite of dung.sprites)
 				{
 					if(sprite.type != "tile")
 						continue;
-					
+
 					let minX = sprite.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
 					let minY = sprite.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
 					let maxX = sprite.bounds.reduce((acc,p) => Math.max(acc,p[0]), -Infinity);
@@ -1135,7 +1270,7 @@
 					{
 						for(let j = minY; j < maxY; j++)
 						{
-							if(isPointInShape([i+.5, j+.5], bounds) && dung.fade != 1)
+							if(isPointInShape([i+.5, j+.5], sprite.bounds) && dung.fade != 1)
 							{
 
 								if(dung.fade != 0 && dung.fade != undefined)
@@ -1154,47 +1289,8 @@
 						}
 					}
 				}	
-			}
-
-			// draw character 
-
-			ctx.globalCompositeOperation = "source-over";
-
-			ctx.fillStyle = "#0000FF";
-			ctx.fillRect(CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20, 40, 40)
-			//ctx.fillRect(0,0, 100,100)
 
 
-			if(transitionPercent == -1)
-			{
-				// exit arrows 
-				for(let exit of mainRoom.exits || [])
-				{
-					let minX = exit.line.reduce((acc,p) => Math.min(acc,p[0]), Infinity) - .5;
-					let minY = exit.line.reduce((acc,p) => Math.min(acc,p[1]), Infinity) - .5;
-					var img;
-
-					if(exit.line[0][1] == exit.line[1][1])
-					{
-						img = (exit.line[0][0] > exit.line[1][0]) ? "ARROW_D" : "ARROW_U";
-						minX += 1
-					}
-					else
-					{
-						minY += 1;
-						img = (exit.line[0][1] > exit.line[1][1]) ? "ARROW_L" : "ARROW_R";
-					}
-
-					ctx.drawImage(IMG[img], minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
-				}
-
-			}	
-			
-
-
-			// draw shading
-			for(let dung of terrain)
-			{
 				if(dung.type == "htransition")
 				{
 					bounds = dung.bounds;
@@ -1214,7 +1310,6 @@
 				if(dung.type == "vtransition")
 				{
 					bounds = dung.bounds;
-
 
 					let i = dung.bounds.reduce((a,b) => Math.min(a,b[0]), Infinity);
 					let j = dung.bounds.reduce((a,b) => Math.min(a,b[1]), Infinity);
