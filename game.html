@@ -73,6 +73,11 @@
 		addImage("GOLD","goldCoins.png");
 		addImage("POND","pond.png");
 
+		addImage("ARROW_L","arrow_l.png");
+		addImage("ARROW_R","arrow_r.png");
+		addImage("ARROW_U","arrow_u.png");
+		addImage("ARROW_D","arrow_d.png");
+
 		let rightTurnTemplate = {
 			bounds: [
 				[0,0],
@@ -520,6 +525,7 @@
 				}
 
 				let area = generator.generate(rand, exitCount);
+				area.isRoom = true;
 			
 				// select entrance
 				let j = Math.floor(rand.random() * area.exits.length);
@@ -881,6 +887,7 @@
 		function loadDungeon(dungeonNo)
 		{
 			let dungeon = JSON.parse(JSON.stringify(dungeons[dungeonNo]))
+			dungeon.parent = dungeons[dungeonNo];
 			terrain = [dungeon];
 			inDungeon = dungeonNo;
 
@@ -895,9 +902,9 @@
 
 			let tileIMG = dungeon.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || "GRASS"
 
-			if(dungeon.entrance)
+			//if(dungeon.entrance)
 
-				terrain.push(buildTransTerrain({line: dungeon.entrance}, tileIMG));
+			//	terrain.push(buildTransTerrain({line: dungeon.entrance}, tileIMG));
 
 			for(let exit of dungeon.exits)
 			{
@@ -934,7 +941,6 @@
 				{
 					area.transition = "left";
 				}
-
 			}
 
 			transitionPercent = 0;
@@ -1029,6 +1035,8 @@
 			// DEF TILE_SIZE
 			let TILE_SIZE = 64;
 
+			let mainRoom = terrain.filter(x => x.isRoom)[0] || {}
+
 
 			ctx.clearRect(0, 0,CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -1053,7 +1061,6 @@
 			for(let dung of terrain)
 			{
 				let bounds = dung.bounds;
-
 
 				// draw tiles + images
 				for(let sprite of dung.sprites)
@@ -1086,6 +1093,7 @@
 						ctx.drawImage(IMG[sprite.img], minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
 					}
 				}
+
 
 				for(let sprite of dung.sprites)
 				{
@@ -1121,10 +1129,7 @@
 							}	
 						}
 					}
-				}
-
-
-				
+				}	
 			}
 
 			// draw character 
@@ -1134,6 +1139,33 @@
 			ctx.fillStyle = "#0000FF";
 			ctx.fillRect(CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20, 40, 40)
 			//ctx.fillRect(0,0, 100,100)
+
+
+			if(transitionPercent == -1)
+			{
+				// exit arrows 
+				for(let exit of mainRoom.exits || [])
+				{
+					let minX = exit.line.reduce((acc,p) => Math.min(acc,p[0]), Infinity) - .5;
+					let minY = exit.line.reduce((acc,p) => Math.min(acc,p[1]), Infinity) - .5;
+					var img;
+
+					if(exit.line[0][1] == exit.line[1][1])
+					{
+						img = (exit.line[0][0] > exit.line[1][0]) ? "ARROW_D" : "ARROW_U";
+						minX += 1
+					}
+					else
+					{
+						minY += 1;
+						img = (exit.line[0][1] > exit.line[1][1]) ? "ARROW_L" : "ARROW_R";
+					}
+
+					ctx.drawImage(IMG[img], minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
+				}
+
+			}	
+			
 
 
 			// draw shading
