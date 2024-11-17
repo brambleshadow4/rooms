@@ -72,8 +72,8 @@
 
 		let maze = [];
 		let at = [];
-		let SEED = 43;
-		let NODE_COUNT = 30;
+		let SEED = 45;
+		let NODE_COUNT = 20;
 		let TILE_SIZE = 64;
 
 		let rand = new MersenneTwister(SEED);
@@ -771,8 +771,6 @@
 			let points = [[x+.4, y+.4], [x-.4, y+.4],[x+.4, y-.4], [x-.4, y-.4]];
 			let mainRoom = terrain.filter(x => x.isRoom)[0] || {}
 
-
-
 			for(let area of terrain)
 			{
 
@@ -832,22 +830,23 @@
 				}
 			}
 
+			let delta = -0.0001 + Math.random() * .0002
 			
 			let charSize = .4;
-			if(KeyPresses["ArrowUp"] && isPointInTerrain([x+charSize, y - .08 - charSize]) && isPointInTerrain([x-charSize, y - .08 - charSize]))
+			if(KeyPresses["ArrowUp"] && isPointInTerrain([x+charSize, y - .08 - charSize + delta]) && isPointInTerrain([x-charSize, y - .08 - charSize + delta]))
 			{
 				y -= .08;
 			}
-			if(KeyPresses["ArrowDown"] && isPointInTerrain([x+charSize, y + .08 + charSize]) && isPointInTerrain([x-charSize, y + .08 + charSize]))
+			if(KeyPresses["ArrowDown"] && isPointInTerrain([x+charSize, y + .08 + charSize + delta]) && isPointInTerrain([x-charSize, y + .08 + charSize + delta]))
 			{
 				y += .08;
 			}
 
-			if(KeyPresses["ArrowLeft"] && isPointInTerrain([x - .08 - charSize, y+charSize]) && isPointInTerrain([x - .08 - charSize, y-charSize]))
+			if(KeyPresses["ArrowLeft"] && isPointInTerrain([x - .08 - charSize + delta, y+charSize]) && isPointInTerrain([x - .08 - charSize + delta, y-charSize]))
 			{
 				x -= .08;
 			}
-			if(KeyPresses["ArrowRight"] && isPointInTerrain([x + .08 + charSize, y+charSize]) && isPointInTerrain([x + .08 + charSize, y-charSize]))
+			if(KeyPresses["ArrowRight"] && isPointInTerrain([x + .08 + charSize + delta, y+charSize]) && isPointInTerrain([x + .08 + charSize + delta, y-charSize]))
 			{
 				x += .08;
 			}
@@ -943,7 +942,7 @@
 				right
 			}
 
-			let diff = addV2(bounds[1], scaleV2(bounds[0], -1));
+			let diff = addV2(bounds[1], scaleV2(bounds[0], -1)); 
 
 			diff = [diff[1], -diff[0]];
 			bounds.push(addV2(bounds[1], diff));
