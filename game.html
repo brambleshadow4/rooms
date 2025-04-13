@@ -28,6 +28,13 @@
 			display: none;
 		}
 
+		@font-face {
+			font-family: FascinateInline;
+			src: url(./font/FascinateInline-Regular.ttf);
+		}
+
+
+
 	</style>
 </head>
 <body>
@@ -712,8 +719,6 @@
 		nodemap.push(goldRoomNode);
 		nodemap[startStopPoints[1]].linksTo.push(goldRoomNode);
 
-		console.log(startStopPoints)
-
 		let dungeons = generateDungeonMap(nodemap);		
 		let ctx = document.getElementsByTagName('canvas')[0].getContext('2d');
 
@@ -740,17 +745,38 @@
 			KeyPresses[e.key] = false;
 		}
 
+		let mouse = {x: 0, y: 0};
+
+		document.getElementsByTagName('canvas')[0].onmousemove = function(e)
+		{
+			mouse.x = e.offsetX;
+			mouse.y = e.offsetY;
+		}
+
 		let x = 2;
 		let y = 2;
 		let terrain = [];
+
+		let introScreen = {};
+
+		let inIntroScreen = true;
 
 
 		function gameLoop()
 		{
 			try
 			{
-				update()
-				draw();
+				if(inIntroScreen)
+				{
+					menuScreenUpdate();
+					menuScreenDraw();
+				}
+				else
+				{
+					inMazeUpdate();
+					inMazeDraw();
+				}
+				
 				requestAnimationFrame(gameLoop);
 			}
 			catch(e)
@@ -766,7 +792,7 @@
 		let labelTarget = null;
 
 
-		function update()
+		function inMazeUpdate()
 		{
 			let points = [[x+.4, y+.4], [x-.4, y+.4],[x+.4, y-.4], [x-.4, y-.4]];
 			let mainRoom = terrain.filter(x => x.isRoom)[0] || {}
@@ -884,6 +910,8 @@
 			charBuffer = "";
 			lastClick = {};
 		}
+
+
 		// DEF dungeons
 
 		let dungeonTemplates = [
@@ -1133,15 +1161,97 @@
 			return [minX, minY, img];
 		}
 
-		function draw()
+		var menuScreenButtons = [
+			{
+				text: "Small (15 rooms)",
+				size: "normal",
+				y: 350
+			},
+			{
+				text: "Medium (25 rooms)",
+				size: "normal",
+				y: 400
+			},
+			{
+				text: "Large (50 rooms)",
+				size: "normal",
+				y: 450
+			},
+			{
+				text: "Giant (100 rooms)",
+				size: "normal",
+				y: 500
+			}
+		];
+
+		function menuScreenUpdate()
+		{
+			for(let button of menuScreenButtons)
+			{
+				if(button.size == "normal")
+				{
+					if(CANVAS_WIDTH/2-150 <= lastClick.offsetX && lastClick.offsetX <= CANVAS_WIDTH/2+150 
+						&& button.y <= lastClick.offsetY && lastClick.offsetY <= button.y+30)
+					{
+						// button was clicked
+						inIntroScreen = false;
+						console.log("yes")
+					}
+				}
+			}
+		}
+
+		function menuScreenDraw()
+		{
+			ctx.globalCompositeOperation = "source-over";
+			ctx.clearRect(0, 0,CANVAS_WIDTH, CANVAS_HEIGHT);
+
+			ctx.fillStyle = "#FFFFFF";
+
+			ctx.font = "50pt FascinateInline";
+			ctx.textAlign = "center";
+			ctx.fillText("Maze Game", CANVAS_WIDTH/2, 300);
+
+			ctx.font = "16pt Arial";
+
+			for(let button of menuScreenButtons)
+			{
+				if(button.size == "normal")
+				{
+					ctx.fillStyle = "#888888";
+					ctx.fillRect(CANVAS_WIDTH/2-150, button.y, 300, 30);
+
+					if(CANVAS_WIDTH/2-150 <= mouse.x && mouse.x <= CANVAS_WIDTH/2+150 && button.y <= mouse.y && mouse.y <= button.y+30)
+					{
+						ctx.fillStyle = "#ff751a";
+					}
+					else
+					{
+						ctx.fillStyle = "#FFFFFF";
+					}
+
+					
+					ctx.fillRect(CANVAS_WIDTH/2-150, button.y, 300-2, 30-2);
+
+					ctx.fillStyle = "#000000";
+					ctx.fillText(button.text, CANVAS_WIDTH/2, button.y+21);
+				}
+			}
+
+			//ctx.fillRect(100, 100, 200, 200);
+			//inMazeDraw();
+
+			ctx.fillStyle = "#0000FF";
+		}
+
+		xOffset = 0;
+		yOffset = 0;
+
+		function inMazeDraw()
 		{	
 			let mainRoom = terrain.filter(x => x.isRoom)[0] || {}
 			ctx.clearRect(0, 0,CANVAS_WIDTH, CANVAS_HEIGHT);
 
-			/*ctx.globalCompositeOperation = "source-over";
-			ctx.fillStyle ="black"
-			ctx.rect(0, 0, 800, 600);
-			ctx.fill();*/
 
 			let lbI = Math.floor(x - CANVAS_WIDTH/2/TILE_SIZE - 1)
 			let ubI = Math.floor(x + CANVAS_WIDTH/2/TILE_SIZE + 2);
@@ -1151,9 +1261,6 @@
 
 			xOffset = Math.floor(x*TILE_SIZE) - CANVAS_WIDTH/2;
 			yOffset = Math.floor(y*TILE_SIZE) - CANVAS_HEIGHT/2;
-
-
-	
 
 			// draw square tiles
 			for(let dung of terrain)
@@ -1215,7 +1322,16 @@
 					for(let i=0; i < dung.exits.length; i++)
 					{
 						let [minX,minY,img] = getExitArrowCoords(dung.exits[i]);
-						ctx.drawImage(IMG[img], minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
+
+						let xLowBound = minX*TILE_SIZE - xOffset;
+						let yLowBound = minY*TILE_SIZE - yOffset
+
+						if(xLowBound <= mouse.x && mouse.x <= xLowBound + TILE_SIZE && yLowBound <= mouse.y && mouse.y <= yLowBound + TILE_SIZE)
+						{
+							img += "H";
+						}
+						ctx.drawImage(IMG[img], xLowBound, yLowBound);
+						
 
 						if(dung.parent.exits[i].label)
 						{
@@ -1234,21 +1350,10 @@
 			
 			}
 
-			
-
-			
-
 			// draw character 
-
 			ctx.globalCompositeOperation = "source-over";
-
 			ctx.fillStyle = "#0000FF";
 			ctx.fillRect(CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20, 40, 40)
-			//ctx.fillRect(0,0, 100,100)
-
-
-			
-
 
 			// draw shading
 			for(let dung of terrain)
@@ -1262,7 +1367,6 @@
 					let minY = sprite.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
 					let maxX = sprite.bounds.reduce((acc,p) => Math.max(acc,p[0]), -Infinity);
 					let maxY = sprite.bounds.reduce((acc,p) => Math.max(acc,p[1]), -Infinity);
-
 
 					ctx.globalCompositeOperation = "destination-out";
 					for(let i = minX; i < maxX; i++)
@@ -1335,7 +1439,6 @@
 			}
 		}
 
-		//draw()
 		gameLoop();
 
 	</script>
