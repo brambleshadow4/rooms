@@ -26,94 +26,50 @@
 
 import * as lib from "./lib.js";
 import {generateDungeon} from "./terrainGenerator.js"
+import * as engine from "./engine.js";
+import TorchEntity from "./TorchEntity.js"
+
 
 let maze = [];
 let at = [];
 
 let TILE_SIZE = 64;
 
-let IMG = {};
-
 
 let SEED = 45;
 let NODE_COUNT = 20;
-var dungeons, startStopPoints = {};
+var allTerrain, startStopPoints = {};
 var xOffset = 0;
 var yOffset = 0;
 
 
-IMG = {
-	img: {},
-	anim: {}
-};
-
-function addImage(sym, filename)
-{
-	let div = document.getElementById('images');
-	let img = document.createElement('img');
-	img.src = "./img/" + filename;
-
-	img.id = "img-" + sym;
-	div.appendChild(img);
-	IMG.img[sym] = img
-}
-
-function addPassiveAnimation(sym, files, option)
-{
-	let div = document.getElementById('images');
-	IMG.anim[sym] = [];
-
-	for(let f of files)
-	{
-		let img = document.createElement('img');
-		img.src = "./img/" + f;
-
-		img.id = "img-" + sym;
-		div.appendChild(img);
-		IMG.anim[sym].push(img);
-	}
-}
 
 
-IMG.get = function(symbol){
+engine.addImage("GRASS","grass.png");
+engine.addImage("SAND","sand.png");
+engine.addImage("STONE_BRICK","stoneBrick.png");
 
-	if(IMG.img[symbol])
-		return IMG.img[symbol];
+engine.addImage("GOLD","goldCoins.png");
+engine.addImage("POND","pond.png");
 
-	if(IMG.anim[symbol])
-	{
-		let i = Math.floor(new Date().getTime() / 100) % IMG.anim[symbol].length;
-		return IMG.anim[symbol][i];
-	}
+engine.addImage("ARROW_L","arrow_l.png");
+engine.addImage("ARROW_R","arrow_r.png");
+engine.addImage("ARROW_U","arrow_u.png");
+engine.addImage("ARROW_D","arrow_d.png");
+engine.addImage("ARROW_LH","arrow_lh.png");
+engine.addImage("ARROW_RH","arrow_rh.png");
+engine.addImage("ARROW_UH","arrow_uh.png");
+engine.addImage("ARROW_DH","arrow_dh.png");
 
-}
+engine.addImage("TAG","tag.png");
 
+engine.addImage("CHAR_U","char/waddleU.png")
+engine.addImage("CHAR_D","char/waddleD.png")
+engine.addImage("CHAR_L","char/waddleL.png")
+engine.addImage("CHAR_R","char/waddleR.png")
 
-addImage("GRASS","grass.png");
-addImage("SAND","sand.png");
-addImage("STONE_BRICK","stoneBrick.png");
-
-addImage("GOLD","goldCoins.png");
-addImage("POND","pond.png");
-
-addImage("ARROW_L","arrow_l.png");
-addImage("ARROW_R","arrow_r.png");
-addImage("ARROW_U","arrow_u.png");
-addImage("ARROW_D","arrow_d.png");
-addImage("ARROW_LH","arrow_lh.png");
-addImage("ARROW_RH","arrow_rh.png");
-addImage("ARROW_UH","arrow_uh.png");
-addImage("ARROW_DH","arrow_dh.png");
-
-addImage("TAG","tag.png");
-
-addImage("CHAR_U","char/waddleU.png")
-addImage("CHAR_D","char/waddleD.png")
-addImage("CHAR_L","char/waddleL.png")
-addImage("CHAR_R","char/waddleR.png")
-
-addImage("TORCH","torch_01.png")
-addPassiveAnimation("TORCHL", ["torch_02.png","torch_03.png","torch_04.png","torch_05.png"])
+engine.addImage("TORCH","torch_01.png")
+engine.addPassiveAnimation("TORCHL", ["torch_02.png","torch_03.png","torch_04.png","torch_05.png"])
 
 
 let ctx = document.getElementsByTagName('canvas')[0].getContext('2d');
@@ -151,6 +107,10 @@ document.getElementsByTagName('canvas')[0].onmousemove = function(e)
 
 let x = 2;
 let y = 2;
+/** 
+ * Terriain is a list of the terrain currently loaded which should be updated and drawn
+ * It does not contain a list of all the terrain which forms the dungeon
+ */
 let terrain = [];
 
 let introScreen = {};
@@ -188,6 +148,13 @@ let counter2 = 1;
 let labelTarget = null;
 
 
+function localizedBounds(terrain)
+{
+	if(terrain.localCoordinates)
+		return terrain.bounds.map(x => lib.addV2(x, terrain.localCoordinates))
+	return terrain.bounds;
+}
+
 function inMazeUpdate()
 {
 	let points = [[x+.4, y+.4], [x-.4, y+.4],[x+.4, y-.4], [x-.4, y-.4]];
@@ -197,7 +164,7 @@ function inMazeUpdate()
 	{
 		if(area.type && area.type.endsWith("transition") && area.connectsTo != undefined)
 		{
-			if(points.map(p => isPointInShape(p, area.bounds)).reduce((a,b) => a && b, true))
+			if(points.map(p => lib.isPointInShape(p, localizedBounds(area))).reduce((a,b) => a && b, true))
 			{
 				labelTarget = null
 				transitionDungeons(area);
@@ -205,9 +172,22 @@ function inMazeUpdate()
 		}
 	}
 
-	// check if you hit the torch
+	if(mainRoom && mainRoom.entities)
+	{
+		let charPos = lib.addV2([x,y], lib.scaleV2(mainRoom.localCoordinates, -1));
+		for(let entity of mainRoom.entities)
+		{
 
-	let torch = mainRoom && mainRoom.sprites &&  mainRoom.sprites.filter(x => x.img == "TORCH")[0];
+			entity.update({
+				charPos,
+			});
+		}
+	}
+
+
+	// check if you hit the torch - refactor into torch entity
+
+	/*let torch = mainRoom && mainRoom.sprites &&  mainRoom.sprites.filter(x => x.img == "TORCH")[0];
 	
 	if(torch)
 	{
@@ -216,12 +196,12 @@ function inMazeUpdate()
 			[torch.bounds[0][0], torch.bounds[1][1]],
 			torch.bounds[1],
 			[torch.bounds[1][0], torch.bounds[0][1]]]
-		if(isPointInShape([x,y], torchRealBounds))
+		if(lib.isPointInShape([x,y], torchRealBounds))
 		{
 			torch.img = "TORCHL";
 			litTorches.add(inDungeon);
 		}
-	}
+	}*/
 
 	if(transitionPercent >= 0)
 	{
@@ -294,7 +274,7 @@ function inMazeUpdate()
 		charDir = "R"
 	}
 
-
+	// should be refactored into arrow entities
 	if(mainRoom.isRoom)
 	{
 		if(lastClick.x != undefined)
@@ -315,7 +295,7 @@ function inMazeUpdate()
 		}
 	}
 
-				
+	// should be refactored into label entity
 	if(mainRoom.isRoom && lastClick.x != undefined)
 	{
 		let roomLabelX = mainRoom.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity) * TILE_SIZE - xOffset;
@@ -355,9 +335,9 @@ let transitionPercent = -1;
 
 
 
-function buildTransTerrain(trans, tileIMG)
+function buildTransTerrain(localCoordinates, trans, tileIMG)
 {
-	let lines = trans.line;
+	let lines = trans.line.map(x => lib.addV2(x, localCoordinates));
 	let bounds = [lines[0], lines[1]];
 	let typ = "vtransition";
 	let left = 0;
@@ -412,12 +392,11 @@ function buildTransTerrain(trans, tileIMG)
 
 function loadDungeon(dungeonNo)
 {
-	let dungeon = JSON.parse(JSON.stringify(dungeons[dungeonNo]))
-	dungeon.parent = dungeons[dungeonNo];
+	let dungeon = allTerrain[dungeonNo];
 	terrain = [dungeon];
 	inDungeon = dungeonNo;
 
-	while(!isPointInShape([x,y], dungeon.bounds))
+	while(!lib.isPointInShape([x,y], dungeon.bounds))
 	{
 		if(x == y)
 			x += 1
@@ -433,34 +412,28 @@ function loadDungeon(dungeonNo)
 
 	for(let exit of dungeon.exits)
 	{
-		terrain.push(buildTransTerrain(exit, tileIMG));
+		terrain.push(buildTransTerrain([0,0], exit, tileIMG));
 	}
 }
 
 function transitionDungeons(transitionArea)
 {
-	let newDungeon = dungeons[transitionArea.connectsTo];
+	let loadedTerrain = allTerrain[transitionArea.connectsTo];
 
 	console.log("Loading " + transitionArea.connectsTo);
 	inDungeon = transitionArea.connectsTo;
 
-	let copy = JSON.parse(JSON.stringify(newDungeon));
-
-	let diff = lib.addV2(transitionArea.connectsToLine[0], lib.scaleV2(newDungeon.entrance[0], -1));;
-
-	copy.bounds = copy.bounds.map(x => lib.addV2(x, diff));
-	copy.entrance = copy.entrance = lib.addV2(copy.entrance, diff);
+	loadedTerrain.localCoordinates = lib.addV2(transitionArea.connectsToLine[0], lib.scaleV2(loadedTerrain.entrance[0], -1));
+	let diff = loadedTerrain.localCoordinates;
 
 	// should be refactored
-	copy.sprites.forEach(s => {
+	/*copy.sprites.forEach(s => {
 		s.bounds = s.bounds.map(p => lib.addV2(p, diff))
 		if(s.img == "TORCH" && litTorches.has(inDungeon))
 		{
 			s.img = "TORCHL";
 		}
-	});
-
-	copy.parent = dungeons[transitionArea.connectsTo]
+	});*/
 
 	for(let area of terrain)
 	{
@@ -477,16 +450,15 @@ function transitionDungeons(transitionArea)
 
 	transitionPercent = 0;
 
-	copy.transition = "in";
-	terrain.push(copy);
+	loadedTerrain.transition = "in";
+	terrain.push(loadedTerrain);
 
 
-	let tileIMG = newDungeon.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || null;
+	let tileIMG = loadedTerrain.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || null;
 	
-	for(let exit of copy.exits)
+	for(let exit of loadedTerrain.exits)
 	{
-		exit.line = exit.line.map(p => lib.addV2(p, diff));
-		let area = buildTransTerrain(exit, tileIMG);
+		let area = buildTransTerrain(diff, exit, tileIMG);
 		area.transition = "in";
 		terrain.push(area);
 	}
@@ -508,47 +480,13 @@ function isPointInTerrain(point)
 		if(area.transition == "out")
 			continue;
 
-		if(isPointInShape(point, area.bounds))
+		if(lib.isPointInShape(point, localizedBounds(area)))
 		{
 			return true;
 		}
 	}
 
 	return false;
-}
-
-function isPointInShape(point, shape)
-{
-	let orientation = (p1,p2,p3) => Math.sign((p2[1] - p1[1])*(p3[0]-p2[0]) - (p2[0]-p1[0])*(p3[1]-p2[1]));
-
-	function doLinesIntersect(p1, q1, p2, q2)
-	{
-		// https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
-		let o1 = orientation(p1, q1, p2);
-		let o2 = orientation(p1, q1, q2);
-		let o3 = orientation(p2, q2, p1);
-		let o4 = orientation(p2, q2, q1);
-
-		if(o1 * o2 *o3 *o4 == 0)
-		{
-			return false;
-			//console.log(p1 + " " + q1 + " " + p2 + " " + q2)
-			//throw new Error("coliniear intersections not supported");
-		}
-
-		return (o1 != o2 && o3 != o4) 
-	}
-
-	let shapeLines = shape.map((p, i) => [p, shape[(i+1) % shape.length]]);
-	let lowestX = shape.map(([a,b]) => a).reduce((a,b)=>Math.min(a,b), 1/0) - 1;
-
-	let p1 = [lowestX, point[1]];
-	let q1 = point;
-
-	let intersections = shapeLines.map(([p2,q2]) => doLinesIntersect(p1, q1, p2, q2) ? 1 : 0)
-		.reduce((a,b)=> a+b, 0);
-
-	return intersections % 2 == 1;
 }
 
 
@@ -620,7 +558,7 @@ function menuScreenUpdate()
 				inIntroScreen = false;
 
 				var maze = generateDungeon(button.nodeCount, SEED);
-				dungeons = maze.dungeons;
+				allTerrain = maze.dungeons;
 				startStopPoints = maze.startStopPoints;
 
 				loadDungeon(startStopPoints[0]);
@@ -699,35 +637,43 @@ function inMazeDraw()
 	{
 		let bounds = dung.bounds;
 
+		if(dung.localCoordinates)
+			bounds = bounds.map(x => lib.addV2(x, dung.localCoordinates));
+
 		// draw tiles + images
 		for(let sprite of dung.sprites)
 		{
+
+			let spriteBounds = sprite.bounds;
+			if(dung.localCoordinates)
+				spriteBounds = spriteBounds.map(x => lib.addV2(x, dung.localCoordinates));
+
 			if(sprite.type == "tile")
 			{
-				let minX = sprite.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
-				let minY = sprite.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
-				let maxX = sprite.bounds.reduce((acc,p) => Math.max(acc,p[0]), -Infinity);
-				let maxY = sprite.bounds.reduce((acc,p) => Math.max(acc,p[1]), -Infinity);
+				let minX = spriteBounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
+				let minY = spriteBounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
+				let maxX = spriteBounds.reduce((acc,p) => Math.max(acc,p[0]), -Infinity);
+				let maxY = spriteBounds.reduce((acc,p) => Math.max(acc,p[1]), -Infinity);
 
 
 				for(let i = minX; i < maxX; i++)
 				{
 					for(let j = minY; j < maxY; j++)
 					{
-						if(isPointInShape([i+.5, j+.5], bounds) && dung.fade != 1)
+						if(lib.isPointInShape([i+.5, j+.5], bounds) && dung.fade != 1)
 						{
 							ctx.globalCompositeOperation = "source-over";
-							ctx.drawImage(IMG.get(sprite.img), i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset);
+							ctx.drawImage(engine.getSprite(sprite.img), i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset);
 						}	
 					}
 				}
 			}
 			else if(sprite.type == "img")
 			{
-				let minX = sprite.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
-				let minY = sprite.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
+				let minX = spriteBounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
+				let minY = spriteBounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
 
-				ctx.drawImage(IMG.get(sprite.img), minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
+				ctx.drawImage(engine.getSprite(sprite.img), minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
 			}
 		}
 	}
@@ -741,7 +687,7 @@ function inMazeDraw()
 
 		if(dung.isRoom)
 		{
-			ctx.drawImage(IMG.get("TAG"), minX, minY+3);
+			ctx.drawImage(engine.getSprite("TAG"), minX, minY+3);
 		}
 	
 
@@ -766,7 +712,7 @@ function inMazeDraw()
 		}
 
 		// draw exit arrows
-		if(dung.isRoom)
+		if(dung.isRoom && false)
 		{
 			for(let i=0; i < dung.exits.length; i++)
 			{
@@ -779,7 +725,7 @@ function inMazeDraw()
 				{
 					img += "H";
 				}
-				ctx.drawImage(IMG.get(img), xLowBound, yLowBound);
+				ctx.drawImage(engine.getSprite(img), xLowBound, yLowBound);
 				
 
 				if(dung.parent.exits[i].label || dung.parent.exits[i] == labelTarget)
@@ -808,9 +754,26 @@ function inMazeDraw()
 	
 	}
 
+
+
+	if(mainRoom && mainRoom.entities)
+	{
+		let p1 = lib.addV2([-x,-y], mainRoom.localCoordinates);
+		
+		let xyOfRoom = lib.addV2(
+			lib.scaleV2(p1, TILE_SIZE),
+			[CANVAS_WIDTH/2, CANVAS_HEIGHT/2]
+		);
+		;
+		for(let entity of mainRoom.entities)
+		{
+			entity.draw(ctx, xyOfRoom);
+		}
+	}
+
 	// draw character
 
-	ctx.drawImage(IMG.get("CHAR_" + charDir), CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20); 
+	ctx.drawImage(engine.getSprite("CHAR_" + charDir), CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20); 
 	ctx.globalCompositeOperation = "source-over";
 	ctx.fillStyle = "#0000FF";
 	//ctx.fillRect(CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20, 40, 40)
@@ -823,17 +786,21 @@ function inMazeDraw()
 			if(sprite.type != "tile")
 				continue;
 
-			let minX = sprite.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
-			let minY = sprite.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
-			let maxX = sprite.bounds.reduce((acc,p) => Math.max(acc,p[0]), -Infinity);
-			let maxY = sprite.bounds.reduce((acc,p) => Math.max(acc,p[1]), -Infinity);
+			let spriteBounds = sprite.bounds;
+			if(dung.localCoordinates)
+				spriteBounds = spriteBounds.map(x => lib.addV2(x, dung.localCoordinates));
+
+			let minX = spriteBounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
+			let minY = spriteBounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
+			let maxX = spriteBounds.reduce((acc,p) => Math.max(acc,p[0]), -Infinity);
+			let maxY = spriteBounds.reduce((acc,p) => Math.max(acc,p[1]), -Infinity);
 
 			ctx.globalCompositeOperation = "destination-out";
 			for(let i = minX; i < maxX; i++)
 			{
 				for(let j = minY; j < maxY; j++)
 				{
-					if(isPointInShape([i+.5, j+.5], sprite.bounds) && dung.fade != 1)
+					if(lib.isPointInShape([i+.5, j+.5], spriteBounds) && dung.fade != 1)
 					{
 
 						if(dung.fade != 0 && dung.fade != undefined)
@@ -856,10 +823,10 @@ function inMazeDraw()
 
 		if(dung.type == "htransition")
 		{
-			let bounds = dung.bounds;
+			let bounds = localizedBounds(dung);
 
-			let i = dung.bounds.reduce((a,b) => Math.min(a,b[0]), Infinity);
-			let j = dung.bounds.reduce((a,b) => Math.min(a,b[1]), Infinity);
+			let i = bounds.reduce((a,b) => Math.min(a,b[0]), Infinity);
+			let j = bounds.reduce((a,b) => Math.min(a,b[1]), Infinity);
 		
 			ctx.globalCompositeOperation = "destination-out";
 			let gradient = ctx.createLinearGradient(i*TILE_SIZE - xOffset+ 2*TILE_SIZE, j*TILE_SIZE - yOffset, i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset);
@@ -872,10 +839,10 @@ function inMazeDraw()
 		}
 		if(dung.type == "vtransition")
 		{
-			let bounds = dung.bounds;
+			let bounds = localizedBounds(dung);
 
-			let i = dung.bounds.reduce((a,b) => Math.min(a,b[0]), Infinity);
-			let j = dung.bounds.reduce((a,b) => Math.min(a,b[1]), Infinity);
+			let i = bounds.reduce((a,b) => Math.min(a,b[0]), Infinity);
+			let j = bounds.reduce((a,b) => Math.min(a,b[1]), Infinity);
 
 			ctx.globalCompositeOperation = "destination-out";
 			var gradient;

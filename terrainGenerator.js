@@ -1,5 +1,6 @@
 import * as lib from "./lib.js";
 import {generateNodes} from "./mazeGenerator.js"
+import TorchEntity from "./TorchEntity.js";
 
 let rightTurnTemplate = {
 	bounds: [
@@ -10,6 +11,7 @@ let rightTurnTemplate = {
 		[2,4],
 		[0,4]
 	],
+	localCoordinates: [0,0],
 	exits: [
 		{line: [[4,0],[4,2]]},
 		{line: [[2,4],[0,4]]},
@@ -23,6 +25,7 @@ let uTurnTemplate = {
 		[6,2],
 		[0,2],
 	],
+	localCoordinates: [0,0],
 	exits: [
 		{line: [[6,2],[4,2]]},
 		{line: [[2,2],[0,2]]},
@@ -36,6 +39,7 @@ let uTurnLongTemplate = {
 		[8,2],
 		[0,2],
 	],
+	localCoordinates: [0,0],
 	exits: [
 		{line: [[8,2],[6,2]]},
 		{line: [[2,2],[0,2]]},
@@ -54,6 +58,7 @@ let smallSquareTemplate = {
 		[5,5],
 		[1,5]
 	],
+	localCoordinates: [0,0],
 	exits: [
 		{line: [[2,1],[4,1]]}, // North
 		{line: [[4,5],[2,5]]}, // South
@@ -70,6 +75,7 @@ let twoCellTemplate = {
 		[8,4],
 		[0,4]
 	],
+	localCoordinates: [0,0],
 	exits: [
 		{line: [[8,1],[8,3]]}, // East
 		{line: [[5,0],[7,0]]}, // North
@@ -90,6 +96,7 @@ let threeCellTemplate = {
 		[4,8],
 		[0,8]
 	],
+	localCoordinates: [0,0],
 	exits: [
 		{line: [[5,0],[7,0]]}, // North
 		{line: [[8,1],[8,3]]}, // East
@@ -118,6 +125,7 @@ let goldRoom = {
 		[5,12],
 		[2,12]
 	],
+	localCoordinates: [0,0],
 	entrance: [[3,20],[1,20]],
 	exits: [
 		{line: [[11,20],[9,20]]}
@@ -221,6 +229,7 @@ function largeSquareGenerator(rand, exitCount)
 			[8,8],
 			[0,8]
 		],
+		localCoordinates: [0,0],
 		exits: [
 			{line: [[0,3],[0,1]]}, // West
 			{line: [[1,0],[3,0]]}, // North
@@ -290,11 +299,14 @@ function largeSquareGenerator(rand, exitCount)
 		newExits.push(area.exits[e]);
 	}
 
-	area.exits = newExits
+	area.exits = newExits;
+
+	area.entities = [
+		new TorchEntity([4,4])
+	];
 
 	area.sprites = [
-		{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds},
-		{type: "img", img: "TORCH", bounds: [[3,2],[5,4]]} 
+		{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
 	];
 
 
@@ -308,7 +320,10 @@ function smallSquareGenerator(rand, exits)
 		{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds} 
 	];
 
-	area.sprites.push({type: "img", img: "TORCH", bounds: [[2,2],[4,4]]});
+	area.entities = [
+		new TorchEntity([2,3])
+	];
+
 
 	/*if(rand.random() > .5)
 	{
@@ -323,17 +338,20 @@ function threeCellGenerator(rand, exitCount)
 	let area = JSON.parse(JSON.stringify(threeCellTemplate));
 	
 	let rotations = Math.floor(rand.random()*4);
-	let torchBounds = {bounds: [[0,0],[8,8],[1,1],[3,3]]};
 
 	for(let j=0; j < rotations; j++)
 	{
 		area = rotateTemplate(area);
-		torchBounds = rotateTemplate(torchBounds);
 	}
 
+	let torchBounds = [[2,2],[2,6],[6,6],[6,2]][rotations]
+
 	area.sprites = [
-		{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds},
-		{type: "img", img: "TORCH", bounds: torchBounds.bounds.slice(2)} 
+		{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
+	];
+
+	area.entities = [
+		new TorchEntity(torchBounds)
 	];
 
 	let posExits = new Set([0,1,2,3,4,5]);
@@ -368,12 +386,12 @@ function threeCellGenerator(rand, exitCount)
 function twoCellGenerator(rand, exitCount)
 {
 	let area = JSON.parse(JSON.stringify(twoCellTemplate));
-	let torchBounds = [[3,0],[5,3]];
+	let torchBounds = [4,2];
 
 	if(rand.random() >= .5)
 	{
 		area = rotateTemplate(area);
-		torchBounds = [[1,2],[3,4]];
+		torchBounds = [2,4];
 	}
 
 	area.sprites = [
@@ -417,11 +435,15 @@ function twoCellGenerator(rand, exitCount)
 		newExits.push(area.exits[e]);
 	}
 
-	area.exits = newExits
+	area.exits = newExits;
+
+
+	area.entities = [
+		new TorchEntity(torchBounds)
+	]
 
 	area.sprites = [
-		{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds},
-		{type: "img", img: "TORCH", bounds: torchBounds} 
+		{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
 	];
 
 	return area;
