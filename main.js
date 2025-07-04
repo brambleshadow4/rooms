@@ -52,14 +52,6 @@ engine.addImage("STONE_BRICK","stoneBrick.png");
 engine.addImage("GOLD","goldCoins.png");
 engine.addImage("POND","pond.png");
 
-engine.addImage("ARROW_L","arrow_l.png");
-engine.addImage("ARROW_R","arrow_r.png");
-engine.addImage("ARROW_U","arrow_u.png");
-engine.addImage("ARROW_D","arrow_d.png");
-engine.addImage("ARROW_LH","arrow_lh.png");
-engine.addImage("ARROW_RH","arrow_rh.png");
-engine.addImage("ARROW_UH","arrow_uh.png");
-engine.addImage("ARROW_DH","arrow_dh.png");
 
 engine.addImage("TAG","tag.png");
 
@@ -260,7 +252,7 @@ function inMazeUpdate()
 	{
 		if(lastClick.x != undefined)
 		{
-			labelTarget= null;
+			/*labelTarget= null;
 			for(let i=0; i< mainRoom.exits.length; i++)
 			{
 				let [x,y,_] = getExitArrowCoords(mainRoom.exits[i]);
@@ -272,7 +264,7 @@ function inMazeUpdate()
 					labelTarget = mainRoom.parent.exits[i];
 					break
 				}
-			}
+			}*/
 		}
 	}
 
@@ -481,26 +473,7 @@ let counter = -1;
 let CANVAS_WIDTH = 1200;
 let CANVAS_HEIGHT = 800;
 
-function getExitArrowCoords(exit)
-{
 
-	let minX = exit.line.reduce((acc,p) => Math.min(acc,p[0]), Infinity) - .5;
-	let minY = exit.line.reduce((acc,p) => Math.min(acc,p[1]), Infinity) - .5;
-	var img;
-
-	if(exit.line[0][1] == exit.line[1][1])
-	{
-		img = (exit.line[0][0] > exit.line[1][0]) ? "ARROW_D" : "ARROW_U";
-		minX += 1
-	}
-	else
-	{
-		minY += 1;
-		img = (exit.line[0][1] > exit.line[1][1]) ? "ARROW_L" : "ARROW_R";
-	}
-
-	return [minX, minY, img];
-}
 
 var menuScreenButtons = [
 	{
@@ -700,7 +673,7 @@ function inMazeDraw()
 		{
 			for(let i=0; i < dung.exits.length; i++)
 			{
-				let [minX,minY,img] = getExitArrowCoords(dung.exits[i]);
+				/*let [minX,minY,img] = getExitArrowCoords(dung.exits[i]);
 
 				let xLowBound = minX*TILE_SIZE - xOffset;
 				let yLowBound = minY*TILE_SIZE - yOffset
@@ -709,10 +682,10 @@ function inMazeDraw()
 				{
 					img += "H";
 				}
-				ctx.drawImage(engine.getSprite(img), xLowBound, yLowBound);
+				ctx.drawImage(engine.getSprite(img), xLowBound, yLowBound);*/
 				
 
-				if(dung.parent.exits[i].label || dung.parent.exits[i] == labelTarget)
+				/*if(dung.parent.exits[i].label || dung.parent.exits[i] == labelTarget)
 				{
 					ctx.fillStyle = "#0000FF";
 					ctx.font = "20px Arial";
@@ -730,7 +703,7 @@ function inMazeDraw()
 						label,
 						minX*TILE_SIZE - xOffset + TILE_SIZE/2 + blinkOffset,
 						minY*TILE_SIZE - yOffset+TILE_SIZE+20);
-				}
+				}*/
 
 			}
 

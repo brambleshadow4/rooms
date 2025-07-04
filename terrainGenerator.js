@@ -1,6 +1,7 @@
 import * as lib from "./lib.js";
 import {generateNodes} from "./mazeGenerator.js"
 import TorchEntity from "./TorchEntity.js";
+import ArrowEntity from "./ArrowEntity.js";
 
 let rightTurnTemplate = {
 	bounds: [
@@ -317,7 +318,7 @@ function smallSquareGenerator(rand, exits)
 {
 	let area = JSON.parse(JSON.stringify(smallSquareTemplate));
 	area.sprites = [
-		{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds} 
+		{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
 	];
 
 	area.entities = [
@@ -438,6 +439,7 @@ function twoCellGenerator(rand, exitCount)
 
 	area.sprites = [
 		{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
+		
 	];
 
 	return area;
@@ -485,6 +487,13 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 
 		let area = generator.generate(rand, exitCount);
 		area.isRoom = true;
+
+		if (area.entities){
+			let torch = area.entities.filter(x => x.type == "torch")[0];
+			console.log(n)
+			if(torch)
+				torch.label = (i+1);
+		}
 	
 		// select entrance
 		let j = Math.floor(rand.random() * area.exits.length);
@@ -493,7 +502,7 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 		dungeons.push(area);
 	}
 
-	// generate position of all exists
+	// generate position of all exits
 	// this needs to happen first to avoid having the u-turn overlap with exits
 
 	// add exits and connector dungeons
@@ -519,6 +528,11 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 
 			exit.connectsTo = node.id;
 		}
+
+		// add arrow entities
+		console.log(source);
+
+		source.entities = (source.entities || []).concat(source.exits.map(ex => new ArrowEntity(ex)));
 	}
 
 
