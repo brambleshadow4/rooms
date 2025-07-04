@@ -24,6 +24,9 @@
  * 
  */
 
+import * as lib from "./lib.js";
+import {generateDungeon} from "./terrainGenerator.js"
+
 let maze = [];
 let at = [];
 
@@ -350,20 +353,7 @@ let dungeonTemplates = [];
 
 let transitionPercent = -1;
 
-function addV2(v1, v2)
-{
-	return [v1[0] + v2[0], v1[1] + v2[1]];
-}
 
-function equalV2(v1,v2)
-{
-	return v1[0] == v2[0] && v1[1] == v2[1]
-}
-
-function scaleV2(v, n)
-{
-	return [n*v[0], n*v[1]];
-}
 
 function buildTransTerrain(trans, tileIMG)
 {
@@ -398,14 +388,14 @@ function buildTransTerrain(trans, tileIMG)
 		right
 	}
 
-	let diff = addV2(bounds[1], scaleV2(bounds[0], -1)); 
+	let diff = lib.addV2(bounds[1], lib.scaleV2(bounds[0], -1)); 
 
 	diff = [diff[1], -diff[0]];
-	bounds.push(addV2(bounds[1], diff));
+	bounds.push(lib.addV2(bounds[1], diff));
 
-	diff = addV2(bounds[2], scaleV2(bounds[1], -1));
+	diff = lib.addV2(bounds[2], lib.scaleV2(bounds[1], -1));
 	diff = [diff[1], -diff[0]];
-	bounds.push(addV2(bounds[2], diff));
+	bounds.push(lib.addV2(bounds[2], diff));
 
 	area.sprites = [
 		{type: "tile", bounds, img: tileIMG || "GRASS"}
@@ -456,13 +446,14 @@ function transitionDungeons(transitionArea)
 
 	let copy = JSON.parse(JSON.stringify(newDungeon));
 
-	let diff = addV2(transitionArea.connectsToLine[0], scaleV2(newDungeon.entrance[0], -1));;
+	let diff = lib.addV2(transitionArea.connectsToLine[0], lib.scaleV2(newDungeon.entrance[0], -1));;
 
-	copy.bounds = copy.bounds.map(x => addV2(x, diff));
-	copy.entrance = copy.entrance = addV2(copy.entrance, diff);
+	copy.bounds = copy.bounds.map(x => lib.addV2(x, diff));
+	copy.entrance = copy.entrance = lib.addV2(copy.entrance, diff);
 
+	// should be refactored
 	copy.sprites.forEach(s => {
-		s.bounds = s.bounds.map(p => addV2(p, diff))
+		s.bounds = s.bounds.map(p => lib.addV2(p, diff))
 		if(s.img == "TORCH" && litTorches.has(inDungeon))
 		{
 			s.img = "TORCHL";
@@ -494,7 +485,7 @@ function transitionDungeons(transitionArea)
 	
 	for(let exit of copy.exits)
 	{
-		exit.line = exit.line.map(p => addV2(p, diff));
+		exit.line = exit.line.map(p => lib.addV2(p, diff));
 		let area = buildTransTerrain(exit, tileIMG);
 		area.transition = "in";
 		terrain.push(area);
@@ -628,7 +619,7 @@ function menuScreenUpdate()
 				// button was clicked
 				inIntroScreen = false;
 
-				var maze = generateCompleteDungeon(button.nodeCount, SEED);
+				var maze = generateDungeon(button.nodeCount, SEED);
 				dungeons = maze.dungeons;
 				startStopPoints = maze.startStopPoints;
 

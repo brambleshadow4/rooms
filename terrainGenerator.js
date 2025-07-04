@@ -1,4 +1,5 @@
-
+import * as lib from "./lib.js";
+import {generateNodes} from "./mazeGenerator.js"
 
 let rightTurnTemplate = {
 	bounds: [
@@ -155,7 +156,7 @@ function doesEntranceLineUpWithExit(line1, line2)
 	let b = line1[0]
 	let a2 = line2[0]
 	let b2 = line2[1];
-	let compV2 = addV2(addV2(b2, a), scaleV2(addV2(b, a2), -1));
+	let compV2 = lib.addV2(lib.addV2(b2, a), lib.scaleV2(lib.addV2(b, a2), -1));
 	return compV2[0] == 0 && compV2[1] == 0;
 }
 
@@ -164,19 +165,19 @@ function isExitParallelWithExit(exit, area)
 	let allExits = area.exits.map(x => x.line);
 	allExits.push(area.entrance);
 
-	let diff = scaleV2(addV2(exit[0], scaleV2(exit[1],-1)), 2);
-	let line1 = exit.map(p => addV2(p, diff));
-	let line2 =  exit.map(p => addV2(p, scaleV2(diff,-1)));
+	let diff = lib.scaleV2(lib.addV2(exit[0], lib.scaleV2(exit[1],-1)), 2);
+	let line1 = exit.map(p => lib.addV2(p, diff));
+	let line2 =  exit.map(p => lib.addV2(p, lib.scaleV2(diff,-1)));
 
 	for(let ex1 of allExits)
 	{
-		if(equalV2(exit[0], ex1[0]) && equalV2(exit[1], ex1[1]))
+		if(lib.equalV2(exit[0], ex1[0]) && lib.equalV2(exit[1], ex1[1]))
 			continue;
 
-		if(equalV2(line1[0], ex1[0]) && equalV2(line1[1], ex1[1]))
+		if(lib.equalV2(line1[0], ex1[0]) && lib.equalV2(line1[1], ex1[1]))
 			return true;
 
-		if(equalV2(line2[0], ex1[0]) && equalV2(line2[1], ex1[1]))
+		if(lib.equalV2(line2[0], ex1[0]) && lib.equalV2(line2[1], ex1[1]))
 			return true;
 	}
 	return false;
@@ -524,8 +525,8 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 			let a2 = nextExit.line[1]
 			let b2 = nextExit.line[0];
 
-			let diff1 = addV2(a, scaleV2(b, - 1));
-			let diff2 = addV2(a2, scaleV2(b2, - 1));
+			let diff1 = lib.addV2(a, lib.scaleV2(b, - 1));
+			let diff2 = lib.addV2(a2, lib.scaleV2(b2, - 1));
 
 
 			if(doesEntranceLineUpWithExit(destination.entrance, nextExit.line))
@@ -614,14 +615,14 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 	// create connectors
 }
 
-function generateCompleteDungeon(node_count, seed)
+export function generateDungeon(node_count, seed)
 {
 	seed = seed || new Date().getTime();
 	let rand = new MersenneTwister(seed);
 
 	let [nodemap, startStopPoints] = generateNodes(rand,node_count);
 
-	totalTorches = node_count;
+	//totalTorches = node_count;
 
 	let goldRoomNode = {id: node_count, linksTo: [nodemap[startStopPoints[0]]]};
 
