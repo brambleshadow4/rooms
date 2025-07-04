@@ -55,13 +55,8 @@ function generateNodes(rand, NODE_COUNT)
 		}
 	}
 
-	
-
-
 	let bestRoute = [0, 0, 1];
-
-
-
+	
 	for(let i=0; i<NODE_COUNT; i++)
 	{
 		for(let n of nodes)
