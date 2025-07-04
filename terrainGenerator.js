@@ -321,14 +321,8 @@ function smallSquareGenerator(rand, exits)
 	];
 
 	area.entities = [
-		new TorchEntity([2,3])
+		new TorchEntity([3,3])
 	];
-
-
-	/*if(rand.random() > .5)
-	{
-		area.sprites.push({type: "img", img: "POND", bounds: [[2,2],[4,4]]});
-	}*/
 
 	return area;
 }

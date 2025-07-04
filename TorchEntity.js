@@ -7,8 +7,6 @@ export default class TorchEntity
 	{
 		//gameState.charPos 
 		let diff = lib.addV2(gameState.charPos, lib.scaleV2(this.position, -1));
-
-		console.log(gameState.charPos)
 		if(-.5 <= diff[0] && diff[0] <= .5 && -.5 <= diff[1] && diff[1] <= .5)
 		{
 			this.isLit = true;
@@ -31,6 +29,5 @@ export default class TorchEntity
 	{
 		this.position = position;
 		this.isLit = false;
-		this.fromClass = "yese baby";
 	}
 }

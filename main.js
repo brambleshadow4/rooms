@@ -184,25 +184,6 @@ function inMazeUpdate()
 		}
 	}
 
-
-	// check if you hit the torch - refactor into torch entity
-
-	/*let torch = mainRoom && mainRoom.sprites &&  mainRoom.sprites.filter(x => x.img == "TORCH")[0];
-	
-	if(torch)
-	{
-		let torchRealBounds = [
-			torch.bounds[0],
-			[torch.bounds[0][0], torch.bounds[1][1]],
-			torch.bounds[1],
-			[torch.bounds[1][0], torch.bounds[0][1]]]
-		if(lib.isPointInShape([x,y], torchRealBounds))
-		{
-			torch.img = "TORCHL";
-			litTorches.add(inDungeon);
-		}
-	}*/
-
 	if(transitionPercent >= 0)
 	{
 		transitionPercent += .05;
@@ -394,6 +375,7 @@ function loadDungeon(dungeonNo)
 {
 	let dungeon = allTerrain[dungeonNo];
 	terrain = [dungeon];
+	transitioningFromDungeon = inDungeon;
 	inDungeon = dungeonNo;
 
 	while(!lib.isPointInShape([x,y], dungeon.bounds))
@@ -422,6 +404,7 @@ function transitionDungeons(transitionArea)
 
 	console.log("Loading " + transitionArea.connectsTo);
 	inDungeon = transitionArea.connectsTo;
+
 
 	loadedTerrain.localCoordinates = lib.addV2(transitionArea.connectsToLine[0], lib.scaleV2(loadedTerrain.entrance[0], -1));
 	let diff = loadedTerrain.localCoordinates;
@@ -468,6 +451,7 @@ function transitionDungeons(transitionArea)
 }
 
 let inDungeon = -1;
+let transitioningFromDungeon = -1;
 
 //loadDungeon(8)
 
@@ -756,20 +740,25 @@ function inMazeDraw()
 
 
 
-	if(mainRoom && mainRoom.entities)
+	for(let dung of terrain)
 	{
-		let p1 = lib.addV2([-x,-y], mainRoom.localCoordinates);
-		
-		let xyOfRoom = lib.addV2(
-			lib.scaleV2(p1, TILE_SIZE),
-			[CANVAS_WIDTH/2, CANVAS_HEIGHT/2]
-		);
-		;
-		for(let entity of mainRoom.entities)
+		if(dung.entities && dung.entities.length)
 		{
-			entity.draw(ctx, xyOfRoom);
+			let offset = dung.localCoordinates || [0,0];
+			let p1 = lib.addV2([-x,-y], offset);
+			let xyOfRoom = lib.addV2(
+				lib.scaleV2(p1, TILE_SIZE),
+				[CANVAS_WIDTH/2, CANVAS_HEIGHT/2]
+			);
+
+			for(let entity of dung.entities)
+			{
+				entity.draw(ctx, xyOfRoom);
+			}
 		}
 	}
+
+	
 
 	// draw character
 
