@@ -51,7 +51,7 @@
 	</div>
 	<script src="mazeGenerator.js"></script>
 	<script>
-
+		"use strict"
 		// room ideas
 		/**
 		 * Spider lair
@@ -79,14 +79,24 @@
 
 		let maze = [];
 		let at = [];
-		let SEED = 45;
-		let NODE_COUNT = 20;
-		let TILE_SIZE = 64;
 
-		let rand = new MersenneTwister(SEED);
+		let TILE_SIZE = 64;
 
 		let IMG = {};
 
+
+		let SEED = 45;
+		let NODE_COUNT = 20;
+		var dungeons, startStopPoints = {};
+		var xOffset = 0;
+		var yOffset = 0;
+
+
+		IMG = {
+			img: {},
+			anim: {}
+		};
+	
 		function addImage(sym, filename)
 		{
 			let div = document.getElementById('images');
@@ -95,8 +105,39 @@
 
 			img.id = "img-" + sym;
 			div.appendChild(img);
-			IMG[sym] = img
+			IMG.img[sym] = img
 		}
+
+		function addPassiveAnimation(sym, files, option)
+		{
+			let div = document.getElementById('images');
+			IMG.anim[sym] = [];
+
+			for(let f of files)
+			{
+				let img = document.createElement('img');
+				img.src = "./img/" + f;
+
+				img.id = "img-" + sym;
+				div.appendChild(img);
+				IMG.anim[sym].push(img);
+			}
+		}
+
+		
+		IMG.get = function(symbol){
+
+			if(IMG.img[symbol])
+				return IMG.img[symbol];
+
+			if(IMG.anim[symbol])
+			{
+				let i = Math.floor(new Date().getTime() / 100) % IMG.anim[symbol].length;
+				return IMG.anim[symbol][i];
+			}
+
+		}
+
 
 		addImage("GRASS","grass.png");
 		addImage("SAND","sand.png");
@@ -113,7 +154,19 @@
 		addImage("ARROW_RH","arrow_rh.png");
 		addImage("ARROW_UH","arrow_uh.png");
 		addImage("ARROW_DH","arrow_dh.png");
+
 		addImage("TAG","tag.png");
+
+		addImage("CHAR_U","char/waddleU.png")
+		addImage("CHAR_D","char/waddleD.png")
+		addImage("CHAR_L","char/waddleL.png")
+		addImage("CHAR_R","char/waddleR.png")
+
+		addImage("TORCH","torch_01.png")
+		addPassiveAnimation("TORCHL", ["torch_02.png","torch_03.png","torch_04.png","torch_05.png"])
+		
+		
+		
 
 		let rightTurnTemplate = {
 			bounds: [
@@ -243,10 +296,15 @@
 
 			let maxX = area.bounds.reduce((acc,[x,y]) => Math.max(x, acc), -1);
 			area.bounds = area.bounds.map(([x,y]) => [y,maxX-x]);
-			area.exits = area.exits.map(exit => {return {line: [
-				[exit.line[0][1], maxX-exit.line[0][0]],
-				[exit.line[1][1], maxX-exit.line[1][0]],
-			]}});
+
+			if(area.exits)
+			{
+				area.exits = area.exits.map(exit => {return {line: [
+					[exit.line[0][1], maxX-exit.line[0][0]],
+					[exit.line[1][1], maxX-exit.line[1][0]],
+				]}});
+			}
+			
 
 			return area;
 		}
@@ -396,7 +454,8 @@
 			area.exits = newExits
 
 			area.sprites = [
-				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds} 
+				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds},
+				{type: "img", img: "TORCH", bounds: [[3,2],[5,4]]} 
 			];
 
 
@@ -410,10 +469,12 @@
 				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds} 
 			];
 
-			if(rand.random() > .5)
+			area.sprites.push({type: "img", img: "TORCH", bounds: [[2,2],[4,4]]});
+
+			/*if(rand.random() > .5)
 			{
 				area.sprites.push({type: "img", img: "POND", bounds: [[2,2],[4,4]]});
-			}
+			}*/
 
 			return area;
 		}
@@ -422,13 +483,18 @@
 		{
 			let area = JSON.parse(JSON.stringify(threeCellTemplate));
 			
-			for(let j=0; j < Math.floor(rand.random()*4); j++)
+			let rotations = Math.floor(rand.random()*4);
+			let torchBounds = {bounds: [[0,0],[8,8],[1,1],[3,3]]};
+
+			for(let j=0; j < rotations; j++)
 			{
 				area = rotateTemplate(area);
+				torchBounds = rotateTemplate(torchBounds);
 			}
 
 			area.sprites = [
-				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
+				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds},
+				{type: "img", img: "TORCH", bounds: torchBounds.bounds.slice(2)} 
 			];
 
 			let posExits = new Set([0,1,2,3,4,5]);
@@ -463,13 +529,16 @@
 		function twoCellGenerator(rand, exitCount)
 		{
 			let area = JSON.parse(JSON.stringify(twoCellTemplate));
-			
+			let torchBounds = [[3,0],[5,3]];
 
 			if(rand.random() >= .5)
+			{
 				area = rotateTemplate(area);
+				torchBounds = [[1,2],[3,4]];
+			}
 
 			area.sprites = [
-				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds}
+				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds},
 			];
 
 
@@ -512,14 +581,15 @@
 			area.exits = newExits
 
 			area.sprites = [
-				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds} 
+				{type: "tile", img: allTiles[Math.floor(rand.random()*allTiles.length)], bounds: area.bounds},
+				{type: "img", img: "TORCH", bounds: torchBounds} 
 			];
 
 			return area;
 		}
 
 
-		function generateDungeonMap(nodes)
+		function generateDungeonMap(nodes, goldRoomNode, rand)
 		{
 			// create main maps
 
@@ -613,10 +683,7 @@
 					var destinationID = nextExit.connectsTo
 					var destination = dungeons[destinationID];
 
-
 					// figure out what transition terrain we need
-
-
 					let a = destination.entrance[0];
 					let b = destination.entrance[1]
 					let a2 = nextExit.line[1]
@@ -684,7 +751,6 @@
 
 						for(let k=0; k<4; k++)
 						{	
-							
 							if(doesEntranceLineUpWithExit(destination.entrance, connectorArea.exits[0].line) && 
 								doesEntranceLineUpWithExit(nextExit.line, connectorArea.exits[1].line))
 							{
@@ -713,14 +779,24 @@
 			// create connectors
 		}
 
-		let [nodemap, startStopPoints] = generateNodes(rand,NODE_COUNT);
+		function generateCompleteDungeon(node_count, seed)
+		{
+			seed = seed || new Date().getTime();
+			let rand = new MersenneTwister(seed);
 
-		let goldRoomNode = {id: NODE_COUNT, linksTo: [nodemap[startStopPoints[0]]]};
+			let [nodemap, startStopPoints] = generateNodes(rand,node_count);
 
-		nodemap.push(goldRoomNode);
-		nodemap[startStopPoints[1]].linksTo.push(goldRoomNode);
+			let goldRoomNode = {id: node_count, linksTo: [nodemap[startStopPoints[0]]]};
 
-		let dungeons = generateDungeonMap(nodemap);		
+			nodemap.push(goldRoomNode);
+			nodemap[startStopPoints[1]].linksTo.push(goldRoomNode);
+
+			return {dungeons: generateDungeonMap(nodemap, goldRoomNode, rand), startStopPoints};
+		}
+
+
+			
+
 		let ctx = document.getElementsByTagName('canvas')[0].getContext('2d');
 
 		let KeyPresses = {};
@@ -800,7 +876,6 @@
 
 			for(let area of terrain)
 			{
-
 				if(area.type && area.type.endsWith("transition") && area.connectsTo != undefined)
 				{
 					if(points.map(p => isPointInShape(p, area.bounds)).reduce((a,b) => a && b, true))
@@ -808,6 +883,24 @@
 						labelTarget = null
 						transitionDungeons(area);
 					}
+				}
+			}
+
+			// check if you hit the torch
+
+			let torch = mainRoom && mainRoom.sprites &&  mainRoom.sprites.filter(x => x.img == "TORCH")[0];
+			
+			if(torch)
+			{
+				let torchRealBounds = [
+					torch.bounds[0],
+					[torch.bounds[0][0], torch.bounds[1][1]],
+					torch.bounds[1],
+					[torch.bounds[1][0], torch.bounds[0][1]]]
+				if(isPointInShape([x,y], torchRealBounds))
+				{
+					torch.img = "TORCHL";
+					litTorches.add(inDungeon);
 				}
 			}
 
@@ -863,19 +956,23 @@
 			if(KeyPresses["ArrowUp"] && isPointInTerrain([x+charSize, y - .08 - charSize + delta]) && isPointInTerrain([x-charSize, y - .08 - charSize + delta]))
 			{
 				y -= .08;
+				charDir = "U"
 			}
 			if(KeyPresses["ArrowDown"] && isPointInTerrain([x+charSize, y + .08 + charSize + delta]) && isPointInTerrain([x-charSize, y + .08 + charSize + delta]))
 			{
 				y += .08;
+				charDir = "D"
 			}
 
 			if(KeyPresses["ArrowLeft"] && isPointInTerrain([x - .08 - charSize + delta, y+charSize]) && isPointInTerrain([x - .08 - charSize + delta, y-charSize]))
 			{
 				x -= .08;
+				charDir = "L"
 			}
 			if(KeyPresses["ArrowRight"] && isPointInTerrain([x + .08 + charSize + delta, y+charSize]) && isPointInTerrain([x + .08 + charSize + delta, y-charSize]))
 			{
 				x += .08;
+				charDir = "R"
 			}
 
 
@@ -890,7 +987,7 @@
 						x = x*TILE_SIZE - xOffset;
 						y = y*TILE_SIZE - yOffset;
 
-						if(x <= lastClick.x && lastClick.x < x + TILE_SIZE*2 && y <= lastClick.y && lastClick.y < y + TILE_SIZE*2)
+						if(x <= lastClick.offsetX && lastClick.offsetX < x + TILE_SIZE*2 && y <= lastClick.offsetY && lastClick.offsetY < y + TILE_SIZE*2)
 						{
 							labelTarget = mainRoom.parent.exits[i];
 							break
@@ -905,7 +1002,8 @@
 				let roomLabelX = mainRoom.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity) * TILE_SIZE - xOffset;
 				let roomLabelY = mainRoom.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity) * TILE_SIZE - yOffset;
 
-				if (roomLabelX <= lastClick.offsetX && lastClick.offsetX <= roomLabelX+30)
+				if (roomLabelX <= lastClick.offsetX && lastClick.offsetX <= roomLabelX+30
+					&& roomLabelY <= lastClick.offsetY && lastClick.offsetY <= roomLabelY+30)
 				{
 					labelTarget = mainRoom.parent;
 				}
@@ -929,11 +1027,9 @@
 
 		// DEF dungeons
 
-		let dungeonTemplates = [
-		];
+		let litTorches = new Set();
 
-		
-
+		let dungeonTemplates = [];
 
 		let transitionPercent = -1;
 
@@ -1014,6 +1110,8 @@
 			terrain = [dungeon];
 			inDungeon = dungeonNo;
 
+
+
 			while(!isPointInShape([x,y], dungeon.bounds))
 			{
 				if(x == y)
@@ -1023,7 +1121,9 @@
 			}
 
 
-			let tileIMG = dungeon.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || "GRASS"
+			let tileIMG = dungeon.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || "GRASS";
+
+			
 
 			//if(dungeon.entrance)
 
@@ -1040,6 +1140,7 @@
 			let newDungeon = dungeons[transitionArea.connectsTo];
 
 			console.log("Loading " + transitionArea.connectsTo);
+			inDungeon = transitionArea.connectsTo;
 
 			let copy = JSON.parse(JSON.stringify(newDungeon));
 
@@ -1050,7 +1151,14 @@
 
 			copy.sprites.forEach(s => {
 				s.bounds = s.bounds.map(p => addV2(p, diff))
+				if(s.img == "TORCH" && litTorches.has(inDungeon))
+				{
+					s.img = "TORCHL";
+				}
 			});
+
+
+
 
 			copy.parent = dungeons[transitionArea.connectsTo]
 
@@ -1094,7 +1202,7 @@
 		let inDungeon = -1;
 
 		//loadDungeon(8)
-		loadDungeon(startStopPoints[0]);
+		
 
 
 		function isPointInTerrain(point)
@@ -1115,7 +1223,7 @@
 
 		function isPointInShape(point, shape)
 		{
-			orientation = (p1,p2,p3) => Math.sign((p2[1] - p1[1])*(p3[0]-p2[0]) - (p2[0]-p1[0])*(p3[1]-p2[1]));
+			let orientation = (p1,p2,p3) => Math.sign((p2[1] - p1[1])*(p3[0]-p2[0]) - (p2[0]-p1[0])*(p3[1]-p2[1]));
 
 			function doLinesIntersect(p1, q1, p2, q2)
 			{
@@ -1180,21 +1288,25 @@
 			{
 				text: "Small (15 rooms)",
 				size: "normal",
+				nodeCount: 15,
 				y: 350
 			},
 			{
 				text: "Medium (25 rooms)",
 				size: "normal",
+				nodeCount: 25,
 				y: 400
 			},
 			{
 				text: "Large (50 rooms)",
 				size: "normal",
+				nodeCount: 50,
 				y: 450
 			},
 			{
 				text: "Giant (100 rooms)",
 				size: "normal",
+				nodeCount: 100,
 				y: 500
 			}
 		];
@@ -1210,6 +1322,13 @@
 					{
 						// button was clicked
 						inIntroScreen = false;
+
+						var maze = generateCompleteDungeon(button.nodeCount, SEED);
+						dungeons = maze.dungeons;
+						startStopPoints = maze.startStopPoints;
+
+						loadDungeon(startStopPoints[0]);
+
 						console.log("yes")
 					}
 				}
@@ -1262,6 +1381,8 @@
 		xOffset = 0;
 		yOffset = 0;
 
+		let charDir = "D";
+
 		function inMazeDraw()
 		{	
 			let mainRoom = terrain.filter(x => x.isRoom)[0] || {}
@@ -1300,7 +1421,7 @@
 								if(isPointInShape([i+.5, j+.5], bounds) && dung.fade != 1)
 								{
 									ctx.globalCompositeOperation = "source-over";
-									ctx.drawImage(IMG[sprite.img], i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset);
+									ctx.drawImage(IMG.get(sprite.img), i*TILE_SIZE - xOffset, j*TILE_SIZE - yOffset);
 								}	
 							}
 						}
@@ -1310,7 +1431,7 @@
 						let minX = sprite.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
 						let minY = sprite.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
 
-						ctx.drawImage(IMG[sprite.img], minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
+						ctx.drawImage(IMG.get(sprite.img), minX*TILE_SIZE - xOffset, minY*TILE_SIZE - yOffset);
 					}
 				}
 			}
@@ -1324,10 +1445,9 @@
 
 				if(dung.isRoom)
 				{
-					ctx.drawImage(IMG["TAG"], minX, minY+3);
+					ctx.drawImage(IMG.get("TAG"), minX, minY+3);
 				}
-				
-				let bli
+			
 
 				if(dung.parent && (dung.parent.label || dung.parent == labelTarget))
 				{
@@ -1363,7 +1483,7 @@
 						{
 							img += "H";
 						}
-						ctx.drawImage(IMG[img], xLowBound, yLowBound);
+						ctx.drawImage(IMG.get(img), xLowBound, yLowBound);
 						
 
 						if(dung.parent.exits[i].label || dung.parent.exits[i] == labelTarget)
@@ -1392,10 +1512,12 @@
 			
 			}
 
-			// draw character 
+			// draw character
+
+			ctx.drawImage(IMG.get("CHAR_" + charDir), CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20); 
 			ctx.globalCompositeOperation = "source-over";
 			ctx.fillStyle = "#0000FF";
-			ctx.fillRect(CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20, 40, 40)
+			//ctx.fillRect(CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20, 40, 40)
 
 			// draw shading
 			for(let dung of terrain)
@@ -1438,7 +1560,7 @@
 
 				if(dung.type == "htransition")
 				{
-					bounds = dung.bounds;
+					let bounds = dung.bounds;
 
 					let i = dung.bounds.reduce((a,b) => Math.min(a,b[0]), Infinity);
 					let j = dung.bounds.reduce((a,b) => Math.min(a,b[1]), Infinity);
@@ -1454,7 +1576,7 @@
 				}
 				if(dung.type == "vtransition")
 				{
-					bounds = dung.bounds;
+					let bounds = dung.bounds;
 
 					let i = dung.bounds.reduce((a,b) => Math.min(a,b[0]), Infinity);
 					let j = dung.bounds.reduce((a,b) => Math.min(a,b[1]), Infinity);
