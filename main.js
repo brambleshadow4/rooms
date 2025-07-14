@@ -36,7 +36,12 @@ let at = [];
 let TILE_SIZE = 64;
 
 
-let SEED = 45;
+let today = new Date();
+
+
+
+let SEED = (today.getFullYear() * 10000) + (today.getMonth()+1)*100 + today.getDate();
+
 let NODE_COUNT = 20;
 var allTerrain, startStopPoints = {};
 var xOffset = 0;
@@ -161,7 +166,6 @@ function isPointInAnEntity(point)
 		{	
 			if(entity.isPointInEntity && entity.isPointInEntity(lib.addV2(point, lib.scaleV2(offset, -1))))
 			{
-				console.log("point is in entity!!")
 				return true;
 			}
 		}
@@ -531,7 +535,7 @@ var menuScreenButtons = [
 	{
 		text: "Small (15 rooms)",
 		size: "normal",
-		nodeCount: 3,
+		nodeCount: 15,
 		y: 350
 	},
 	{
@@ -565,9 +569,19 @@ function menuScreenUpdate()
 			{
 				// button was clicked
 				inIntroScreen = false;
+				var sizeText = {
+					15: "SMALL",
+					25: "MEDIUM",
+					50: "LARGE",
+					100: "GIANT"
+				}
 
-				var maze = generateDungeon(button.nodeCount, SEED);
-				totalTorches = button.nodeCount;
+				let nodeCount = button.nodeCount;
+
+				window.location = "#" + (sizeText[nodeCount] || "CUSTOM" + nodeCount).toUpperCase() + "-" + SEED;
+
+				var maze = generateDungeon(nodeCount, SEED);
+				totalTorches = nodeCount;
 				allTerrain = maze.dungeons;
 				startStopPoints = maze.startStopPoints;
 
@@ -589,6 +603,7 @@ function menuScreenDraw()
 	ctx.fillText("Maze Game", CANVAS_WIDTH/2, 300);
 
 	ctx.font = "16pt Arial";
+
 
 	for(let button of menuScreenButtons)
 	{

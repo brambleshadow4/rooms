@@ -7,7 +7,6 @@ engine.addImage("DOOR","door.png");
 
 export default class DoorEntity
 {
-
 	update(gameState)
 	{
 		if(gameState.totalTorches == gameState.litTorches.size)
