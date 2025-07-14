@@ -30,9 +30,9 @@ export default class DoorEntity
 
 			ctx.textAlign = "center";
 			ctx.fillStyle = "#000000";
-			ctx.font = "12pt Arial";
+			ctx.font = "18pt Arial";
 
-			ctx.fillText("You must light all the torches to open the door", roomXY[0]+this.position[0]*64, roomXY[1]+this.position[1]*64+64+20);
+			ctx.fillText("You must light all the torches to open the door", roomXY[0]+this.position[0]*64, roomXY[1]+this.position[1]*64+64+40);
 		}
 
 		
