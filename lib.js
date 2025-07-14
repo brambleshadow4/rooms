@@ -26,6 +26,10 @@ export function equalV2(v1,v2)
 
 export function scaleV2(v, n)
 {
+	if(!isVector(v)){
+		console.error(v);
+		throw new Error("v is not a vector")
+	}
 	return [n*v[0], n*v[1]];
 }
 

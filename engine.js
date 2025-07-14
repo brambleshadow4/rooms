@@ -4,6 +4,9 @@ let IMG = {
 	anim: {}
 };
 
+let eventHandlers = {};
+
+
 export function addImage(sym, filename)
 {
 	let div = document.getElementById('images');
@@ -43,4 +46,20 @@ export function getSprite(symbol){
 		return IMG.anim[symbol][i];
 	}
 
+}
+
+export function broadcastEvent(event, eventArgs)
+{
+	if(eventHandlers[event])
+	{
+		eventHandlers[event].forEach(x => x(eventArgs));
+	}
+}
+
+export function addEventHandler(event, handler)
+{
+	if(eventHandlers[event] == undefined)
+		eventHandlers[event] = [];
+
+	eventHandlers[event].push(handler);
 }

@@ -147,6 +147,29 @@ function localizedBounds(terrain)
 	return terrain.bounds;
 }
 
+function isPointInAnEntity(point)
+{
+	for(let dung of terrain)
+	{
+		if(!dung.entities || dung.entities.length == 0)
+			continue;
+
+		let offset = dung.localCoordinates || [0,0];
+		let p2 = lib.addV2(point, lib.scaleV2(offset, -1));
+
+		for(let entity of dung.entities)
+		{	
+			if(entity.isPointInEntity && entity.isPointInEntity(lib.addV2(point, lib.scaleV2(offset, -1))))
+			{
+				console.log("point is in entity!!")
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 function inMazeUpdate()
 {
 	let points = [[x+.4, y+.4], [x-.4, y+.4],[x+.4, y-.4], [x-.4, y-.4]];
@@ -158,20 +181,28 @@ function inMazeUpdate()
 		{
 			if(points.map(p => lib.isPointInShape(p, localizedBounds(area))).reduce((a,b) => a && b, true))
 			{
-				labelTarget = null
 				transitionDungeons(area);
 			}
 		}
 	}
 
-	if(mainRoom && mainRoom.entities)
-	{
-		let charPos = lib.addV2([x,y], lib.scaleV2(mainRoom.localCoordinates, -1));
-		for(let entity of mainRoom.entities)
-		{
+	let entityPointShapeFuns = [];
 
+	for(let dung of terrain)
+	{
+		if(!dung.entities || dung.entities.length == 0)
+			continue;
+
+		let charPos = [x,y];
+		if(dung.localCoordinates)
+			charPos = lib.addV2(charPos, lib.scaleV2(dung.localCoordinates, -1));
+
+		for(let entity of dung.entities)
+		{
 			entity.update({
 				charPos,
+				totalTorches,
+				litTorches
 			});
 		}
 	}
@@ -205,9 +236,36 @@ function inMazeUpdate()
 		}
 	}
 
+	// remove faded out terrain
 	if(transitionPercent == 1)
 	{
 		transitionPercent = -1;
+
+		if(exitEntityToUpdate)
+		{
+			if(exitEntityToUpdate.arrowEntity)
+			{
+				exitEntityToUpdate.arrowEntity.visited = true;
+
+
+				let no = allTerrain[inDungeon].isRoom ? (inDungeon) : (allTerrain[inDungeon].exits[0].connectsTo)
+				
+
+				if(no < totalTorches)
+				{
+					exitEntityToUpdate.arrowEntity.label = no+1;
+				}
+				else
+				{
+					exitEntityToUpdate.arrowEntity.label = "E";
+				}
+				
+				
+			}
+			
+			exitEntityToUpdate = null;
+		}
+
 		for(let i=0; i < terrain.length; i++)
 		{
 			if(terrain[i].transition == "out")
@@ -222,75 +280,56 @@ function inMazeUpdate()
 		}
 	}
 
-	let delta = -0.0001 + Math.random() * .0002
+	let delta = -0.0001 + Math.random() * .0002;
+
+
+
+	let charPos = [x,y];
+	if(mainRoom && mainRoom.localCoordinates)
+		lib.addV2([x,y], lib.scaleV2(mainRoom.localCoordinates, -1));
 	
 	let charSize = .4;
-	if(KeyPresses["ArrowUp"] && isPointInTerrain([x+charSize, y - .08 - charSize + delta]) && isPointInTerrain([x-charSize, y - .08 - charSize + delta]))
+	if(KeyPresses["ArrowUp"] 
+		&& isPointInTerrain([x+charSize, y - .08 - charSize + delta]) 
+		&& isPointInTerrain([x-charSize, y - .08 - charSize + delta])
+		&& !isPointInAnEntity(lib.addV2(charPos, [charSize, -.08]))
+		&& !isPointInAnEntity(lib.addV2(charPos, [-charSize, -.08]))
+		)
 	{
 		y -= .08;
 		charDir = "U"
 	}
-	if(KeyPresses["ArrowDown"] && isPointInTerrain([x+charSize, y + .08 + charSize + delta]) && isPointInTerrain([x-charSize, y + .08 + charSize + delta]))
+	if(KeyPresses["ArrowDown"] 
+		&& isPointInTerrain([x+charSize, y + .08 + charSize + delta]) 
+		&& isPointInTerrain([x-charSize, y + .08 + charSize + delta])
+		&& !isPointInAnEntity(lib.addV2(charPos, [charSize, + .08]))
+		&& !isPointInAnEntity(lib.addV2(charPos, [-charSize, + .08]))
+		)
 	{
 		y += .08;
 		charDir = "D"
 	}
 
-	if(KeyPresses["ArrowLeft"] && isPointInTerrain([x - .08 - charSize + delta, y+charSize]) && isPointInTerrain([x - .08 - charSize + delta, y-charSize]))
+	if(KeyPresses["ArrowLeft"] 
+		&& isPointInTerrain([x - .08 - charSize + delta, y+charSize]) 
+		&& isPointInTerrain([x - .08 - charSize + delta, y-charSize])
+		&& !isPointInAnEntity(lib.addV2(charPos, [-0.08, charSize]))
+		&& !isPointInAnEntity(lib.addV2(charPos, [-0.08, -charSize]))
+		)
 	{
 		x -= .08;
 		charDir = "L"
 	}
-	if(KeyPresses["ArrowRight"] && isPointInTerrain([x + .08 + charSize + delta, y+charSize]) && isPointInTerrain([x + .08 + charSize + delta, y-charSize]))
+	if(KeyPresses["ArrowRight"] 
+		&& isPointInTerrain([x + .08 + charSize + delta, y+charSize]) 
+		&& isPointInTerrain([x + .08 + charSize + delta, y-charSize])
+		&& !isPointInAnEntity(lib.addV2(charPos, [0.08, charSize]))
+		&& !isPointInAnEntity(lib.addV2(charPos, [0.08, -charSize]))
+		)
 	{
 		x += .08;
 		charDir = "R"
 	}
-
-	// should be refactored into arrow entities
-	if(mainRoom.isRoom)
-	{
-		if(lastClick.x != undefined)
-		{
-			/*labelTarget= null;
-			for(let i=0; i< mainRoom.exits.length; i++)
-			{
-				let [x,y,_] = getExitArrowCoords(mainRoom.exits[i]);
-				x = x*TILE_SIZE - xOffset;
-				y = y*TILE_SIZE - yOffset;
-
-				if(x <= lastClick.offsetX && lastClick.offsetX < x + TILE_SIZE*2 && y <= lastClick.offsetY && lastClick.offsetY < y + TILE_SIZE*2)
-				{
-					labelTarget = mainRoom.parent.exits[i];
-					break
-				}
-			}*/
-		}
-	}
-
-	// should be refactored into label entity
-	if(mainRoom.isRoom && lastClick.x != undefined)
-	{
-		let roomLabelX = mainRoom.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity) * TILE_SIZE - xOffset;
-		let roomLabelY = mainRoom.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity) * TILE_SIZE - yOffset;
-
-		if (roomLabelX <= lastClick.offsetX && lastClick.offsetX <= roomLabelX+30
-			&& roomLabelY <= lastClick.offsetY && lastClick.offsetY <= roomLabelY+30)
-		{
-			labelTarget = mainRoom.parent;
-		}
-	}
-
-	if(labelTarget && charBuffer.length)
-	{
-		labelTarget.label = labelTarget.label || "";
-		labelTarget.label = (labelTarget.label + charBuffer).replace(/.[\b]|^[\b]+/g,"");
-	}
-	if(!mainRoom.isRoom)
-	{
-		labelTarget = null;
-	}
-
 
 	charBuffer = "";
 	lastClick = {};
@@ -301,6 +340,10 @@ function inMazeUpdate()
 
 let totalTorches = -1;
 let litTorches = new Set();
+
+engine.addEventHandler("torch", function(torchName){
+	litTorches.add(torchName);
+})
 
 let dungeonTemplates = [];
 
@@ -338,7 +381,8 @@ function buildTransTerrain(localCoordinates, trans, tileIMG)
 		bounds,
 		type: typ,
 		left,
-		right
+		right,
+		associatedWithExit: trans
 	}
 
 	let diff = lib.addV2(bounds[1], lib.scaleV2(bounds[0], -1)); 
@@ -359,6 +403,9 @@ function buildTransTerrain(localCoordinates, trans, tileIMG)
 		area.connectsTo = trans.connectsTo;
 		area.connectsToLine = [bounds[2], bounds[3]];
 	}
+
+
+
 	return area;
 }
 
@@ -390,12 +437,16 @@ function loadDungeon(dungeonNo)
 	}
 }
 
+var exitEntityToUpdate = null;
+
 function transitionDungeons(transitionArea)
 {
 	let loadedTerrain = allTerrain[transitionArea.connectsTo];
 
 	console.log("Loading " + transitionArea.connectsTo);
 	inDungeon = transitionArea.connectsTo;
+
+	exitEntityToUpdate = transitionArea.associatedWithExit;
 
 
 	loadedTerrain.localCoordinates = lib.addV2(transitionArea.connectsToLine[0], lib.scaleV2(loadedTerrain.entrance[0], -1));
@@ -435,6 +486,7 @@ function transitionDungeons(transitionArea)
 	{
 		let area = buildTransTerrain(diff, exit, tileIMG);
 		area.transition = "in";
+		area.exit = exit; 
 		terrain.push(area);
 	}
 
@@ -479,7 +531,7 @@ var menuScreenButtons = [
 	{
 		text: "Small (15 rooms)",
 		size: "normal",
-		nodeCount: 6,
+		nodeCount: 3,
 		y: 350
 	},
 	{
@@ -515,12 +567,11 @@ function menuScreenUpdate()
 				inIntroScreen = false;
 
 				var maze = generateDungeon(button.nodeCount, SEED);
+				totalTorches = button.nodeCount;
 				allTerrain = maze.dungeons;
 				startStopPoints = maze.startStopPoints;
 
 				loadDungeon(startStopPoints[0]);
-
-				console.log("yes")
 			}
 		}
 	}
@@ -612,7 +663,6 @@ function inMazeDraw()
 				let maxX = spriteBounds.reduce((acc,p) => Math.max(acc,p[0]), -Infinity);
 				let maxY = spriteBounds.reduce((acc,p) => Math.max(acc,p[1]), -Infinity);
 
-
 				for(let i = minX; i < maxX; i++)
 				{
 					for(let j = minY; j < maxY; j++)
@@ -635,84 +685,7 @@ function inMazeDraw()
 		}
 	}
 
-	let blink = (new Date().getTime() % 1000) >= 500;
-
-	for(let dung of terrain)
-	{
-		let minX = dung.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity) * TILE_SIZE - xOffset;
-		let minY = dung.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity) * TILE_SIZE - yOffset;
-
-		if(dung.isRoom)
-		{
-			ctx.drawImage(engine.getSprite("TAG"), minX, minY+3);
-		}
-	
-
-		if(dung.parent && (dung.parent.label || dung.parent == labelTarget))
-		{
-			//let minX = dung.bounds.reduce((acc,p) => Math.min(acc,p[0]), Infinity);
-			//let minY = dung.bounds.reduce((acc,p) => Math.min(acc,p[1]), Infinity);
-
-			ctx.fillStyle = "#0000FF";
-			ctx.font = "20px Arial";
-			ctx.textAlign = "left";
-
-			let label = dung.parent.label || "";
-
-			if(labelTarget == dung.parent && blink)
-			{
-				label += "_"
-			}
-
-			ctx.fillText(label, minX + 35, minY+25);
-			
-		}
-
-		// draw exit arrows
-		if(dung.isRoom && false)
-		{
-			for(let i=0; i < dung.exits.length; i++)
-			{
-				/*let [minX,minY,img] = getExitArrowCoords(dung.exits[i]);
-
-				let xLowBound = minX*TILE_SIZE - xOffset;
-				let yLowBound = minY*TILE_SIZE - yOffset
-
-				if(xLowBound <= mouse.x && mouse.x <= xLowBound + TILE_SIZE && yLowBound <= mouse.y && mouse.y <= yLowBound + TILE_SIZE)
-				{
-					img += "H";
-				}
-				ctx.drawImage(engine.getSprite(img), xLowBound, yLowBound);*/
-				
-
-				/*if(dung.parent.exits[i].label || dung.parent.exits[i] == labelTarget)
-				{
-					ctx.fillStyle = "#0000FF";
-					ctx.font = "20px Arial";
-					ctx.textAlign = "center";
-
-					let label = dung.parent.exits[i].label || "";
-					let blinkOffset = 0;
-					if(dung.parent.exits[i] == labelTarget && blink)
-					{
-						blinkOffset = 6;
-						label += "_";
-					}
-
-					ctx.fillText(
-						label,
-						minX*TILE_SIZE - xOffset + TILE_SIZE/2 + blinkOffset,
-						minY*TILE_SIZE - yOffset+TILE_SIZE+20);
-				}*/
-
-			}
-
-		}	
-	
-	}
-
-
-
+	// draw entities
 	for(let dung of terrain)
 	{
 		if(dung.entities && dung.entities.length)
@@ -724,6 +697,7 @@ function inMazeDraw()
 				[CANVAS_WIDTH/2, CANVAS_HEIGHT/2]
 			);
 
+			//console.log(dung.entities)
 			for(let entity of dung.entities)
 			{
 				entity.draw(ctx, xyOfRoom);

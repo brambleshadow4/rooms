@@ -11,6 +11,13 @@ engine.addImage("ARROW_RH","arrow_rh.png");
 engine.addImage("ARROW_UH","arrow_uh.png");
 engine.addImage("ARROW_DH","arrow_dh.png");
 
+const dirOffset = {
+	"U": -1,
+	"D": 10,
+	"L": 6,
+	"R": 6
+}
+
 export default class ArrowEntity
 {
 	update(gameState)
@@ -22,12 +29,17 @@ export default class ArrowEntity
 	draw(ctx, roomXY)
 	{
 		ctx.drawImage(engine.getSprite("ARROW_"+ this.direction), roomXY[0]+this.position[0]*64-32, roomXY[1]+this.position[1]*64-32);
+
+		ctx.font = "16pt Arial";
+		ctx.fillStyle = "#0000FF";
+		ctx.textAlign = "center";
+		ctx.fillText(this.label, roomXY[0]+this.position[0]*64, roomXY[1]+this.position[1]*64 + dirOffset[this.direction]);
 	};
 
 	constructor(exit)
 	{
-		console.log(exit)
 		this.exit = exit;
+		exit.arrowEntity = this;
 
 		if(exit.line[0][0] < exit.line[1][0])
 			this.direction = "U";
@@ -39,29 +51,7 @@ export default class ArrowEntity
 			this.direction = "L";
 
 		this.position = lib.scaleV2(lib.addV2(exit.line[0], exit.line[1]), 1/2);
-		
-
-
+		this.visited = false;
+		this.label = "";
 	}
-}
-
-function getExitArrowCoords(exit)
-{
-
-	let minX = exit.line.reduce((acc,p) => Math.min(acc,p[0]), Infinity) - .5;
-	let minY = exit.line.reduce((acc,p) => Math.min(acc,p[1]), Infinity) - .5;
-	var img;
-
-	if(exit.line[0][1] == exit.line[1][1])
-	{
-		img = (exit.line[0][0] > exit.line[1][0]) ? "ARROW_D" : "ARROW_U";
-		minX += 1
-	}
-	else
-	{
-		minY += 1;
-		img = (exit.line[0][1] > exit.line[1][1]) ? "ARROW_L" : "ARROW_R";
-	}
-
-	return [minX, minY, img];
 }

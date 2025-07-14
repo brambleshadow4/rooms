@@ -2,6 +2,7 @@ import * as lib from "./lib.js";
 import {generateNodes} from "./mazeGenerator.js"
 import TorchEntity from "./TorchEntity.js";
 import ArrowEntity from "./ArrowEntity.js";
+import DoorEntity from "./DoorEntity.js";
 
 let rightTurnTemplate = {
 	bounds: [
@@ -459,6 +460,7 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 		if(n == goldRoomNode)
 		{
 			dungeons.push(goldRoom);
+			goldRoom.entities = [new DoorEntity([6,15])];
 			continue;
 		}
 
@@ -490,7 +492,6 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 
 		if (area.entities){
 			let torch = area.entities.filter(x => x.type == "torch")[0];
-			console.log(n)
 			if(torch)
 				torch.label = (i+1);
 		}
@@ -529,8 +530,7 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 			exit.connectsTo = node.id;
 		}
 
-		// add arrow entities
-		console.log(source);
+		console.log(source.entities)
 
 		source.entities = (source.entities || []).concat(source.exits.map(ex => new ArrowEntity(ex)));
 	}

@@ -10,6 +10,7 @@ export default class TorchEntity
 		if(-.5 <= diff[0] && diff[0] <= .5 && 0 <= diff[1] && diff[1] <= 1)
 		{
 			this.isLit = true;
+			engine.broadcastEvent("torch", this.label);
 		}
 	};
 
