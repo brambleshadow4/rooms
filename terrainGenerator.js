@@ -14,7 +14,7 @@ let rightTurnTemplate = {
 		[0,4]
 	],
 	localCoordinates: [0,0],
-	exits: [
+	transitionBoundaries: [
 		{line: [[4,0],[4,2]]},
 		{line: [[2,4],[0,4]]},
 	]
@@ -28,7 +28,7 @@ let uTurnTemplate = {
 		[0,2],
 	],
 	localCoordinates: [0,0],
-	exits: [
+	transitionBoundaries: [
 		{line: [[6,2],[4,2]]},
 		{line: [[2,2],[0,2]]},
 	]
@@ -42,7 +42,7 @@ let uTurnLongTemplate = {
 		[0,2],
 	],
 	localCoordinates: [0,0],
-	exits: [
+	transitionBoundaries: [
 		{line: [[8,2],[6,2]]},
 		{line: [[2,2],[0,2]]},
 	]
@@ -61,7 +61,7 @@ let smallSquareTemplate = {
 		[1,5]
 	],
 	localCoordinates: [0,0],
-	exits: [
+	transitionBoundaries: [
 		{line: [[2,1],[4,1]]}, // North
 		{line: [[4,5],[2,5]]}, // South
 
@@ -78,7 +78,7 @@ let twoCellTemplate = {
 		[0,4]
 	],
 	localCoordinates: [0,0],
-	exits: [
+	transitionBoundaries: [
 		{line: [[8,1],[8,3]]}, // East
 		{line: [[5,0],[7,0]]}, // North
 		{line: [[7,4],[5,4]]}, // South
@@ -99,7 +99,7 @@ let threeCellTemplate = {
 		[0,8]
 	],
 	localCoordinates: [0,0],
-	exits: [
+	transitionBoundaries: [
 		{line: [[5,0],[7,0]]}, // North
 		{line: [[8,1],[8,3]]}, // East
 
@@ -128,10 +128,9 @@ let goldRoom = {
 		[2,12]
 	],
 	localCoordinates: [0,0],
-	entrance: [[3,20],[1,20]],
-	exits: [
-		{line: [[11,20],[9,20]]}
-	],
+	entrance: [[7,20],[5,20]],
+	transitionBoundaries: []
+	//transitionBoundaries: [[[7,20],[5,20]]]
 };
 
 goldRoom.sprites = [
@@ -148,11 +147,11 @@ function rotateTemplate(areaTemplate)
 	let maxX = area.bounds.reduce((acc,[x,y]) => Math.max(x, acc), -1);
 	area.bounds = area.bounds.map(([x,y]) => [y,maxX-x]);
 
-	if(area.exits)
+	if(area.transitionBoundaries)
 	{
-		area.exits = area.exits.map(exit => {return {line: [
-			[exit.line[0][1], maxX-exit.line[0][0]],
-			[exit.line[1][1], maxX-exit.line[1][0]],
+		area.transitionBoundaries = area.transitionBoundaries.map(tb => {return {line: [
+			[tb.line[0][1], maxX-tb.line[0][0]],
+			[tb.line[1][1], maxX-tb.line[1][0]],
 		]}});
 	}
 	
@@ -232,7 +231,7 @@ function largeSquareGenerator(rand, exitCount)
 			[0,8]
 		],
 		localCoordinates: [0,0],
-		exits: [
+		transitionBoundaries: [
 			{line: [[0,3],[0,1]]}, // West
 			{line: [[1,0],[3,0]]}, // North
 			
@@ -301,7 +300,7 @@ function largeSquareGenerator(rand, exitCount)
 		newExits.push(area.exits[e]);
 	}
 
-	area.exits = newExits;
+	area.transitionBoundaries = newExits;
 
 	area.entities = [
 		new TorchEntity([4,4])
@@ -371,10 +370,10 @@ function threeCellGenerator(rand, exitCount)
 	let newExits = []
 	for(let e of exitSet)
 	{
-		newExits.push(area.exits[e]);
+		newExits.push(area.transitionBoundaries[e]);
 	}
 
-	area.exits = newExits
+	area.transitionBoundaries = newExits
 
 	return area;
 }
@@ -428,10 +427,10 @@ function twoCellGenerator(rand, exitCount)
 	let newExits = []
 	for(let e of exitSet)
 	{
-		newExits.push(area.exits[e]);
+		newExits.push(area.transitionBoundaries[e]);
 	}
 
-	area.exits = newExits;
+	area.transitionBoundaries = newExits;
 
 
 	area.entities = [
@@ -447,7 +446,7 @@ function twoCellGenerator(rand, exitCount)
 }
 
 
-function generateDungeonMap(nodes, goldRoomNode, rand)
+function convertNodesToDungeon(nodes, goldRoomNode, rand)
 {
 	// create main maps
 
@@ -456,11 +455,11 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 	for(let i=0; i < nodes.length; i++)
 	{
 		let n = nodes[i];
-
 		if(n == goldRoomNode)
 		{
 			dungeons.push(goldRoom);
 			goldRoom.entities = [new DoorEntity([6,15])];
+			goldRoom.displayNo = "E";
 			continue;
 		}
 
@@ -489,16 +488,18 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 
 		let area = generator.generate(rand, exitCount);
 		area.isRoom = true;
+		area.id = i;
+		area.displayNo = n.displayNo;
 
 		if (area.entities){
 			let torch = area.entities.filter(x => x.type == "torch")[0];
 			if(torch)
-				torch.label = (i+1);
+				torch.label = area.displayNo;
 		}
 	
 		// select entrance
-		let j = Math.floor(rand.random() * area.exits.length);
-		area.entrance = area.exits.splice(j,1)[0].line;
+		let j = Math.floor(rand.random() * area.transitionBoundaries.length);
+		area.entrance = area.transitionBoundaries.splice(j,1)[0].line;
 
 		dungeons.push(area);
 	}
@@ -510,7 +511,8 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 	for(let i=0; i < nodes.length; i++)
 	{
 		let source = dungeons[i]
-		let allExits = source.exits;
+		let allExits = source.transitionBoundaries;
+		source.transitions = [];
 		source.exits = [];
 
 		if(allExits.length < nodes[i].linksTo.length)
@@ -518,21 +520,16 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 			throw new Error("need a bigger room")
 		}
 
-		// this connection naively works, but
 
 		for(let node of nodes[i].linksTo)
 		{	
 			let j = Math.floor(rand.random() * allExits.length);
-
-			let exit = allExits.splice(j,1)[0];
-			source.exits.push(exit);
-
-			exit.connectsTo = node.id;
+			let boundary = allExits.splice(j,1)[0];
+			source.exits.push({line: boundary.line, connectsTo: node.id});
 		}
 
-		console.log(source.entities)
-
-		source.entities = (source.entities || []).concat(source.exits.map(ex => new ArrowEntity(ex)));
+		// TODO Fix this
+		//source.entities = (source.entities || []).concat(source.exits.map(ex => new ArrowEntity(ex)));
 	}
 
 
@@ -543,100 +540,11 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 
 		let tileIMG = source.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || "GRASS";
 
-		destinationLoop: for(let nextExit of source.exits)
+		for(let nextExit of source.exits)
 		{	
-			
-			var destinationID = nextExit.connectsTo
-			var destination = dungeons[destinationID];
-
-			// figure out what transition terrain we need
-			let a = destination.entrance[0];
-			let b = destination.entrance[1]
-			let a2 = nextExit.line[1]
-			let b2 = nextExit.line[0];
-
-			let diff1 = lib.addV2(a, lib.scaleV2(b, - 1));
-			let diff2 = lib.addV2(a2, lib.scaleV2(b2, - 1));
-
-
-			if(doesEntranceLineUpWithExit(destination.entrance, nextExit.line))
-			{
-				// lines are parallel - the naive conneciton works!
-
-			}
-			else if (diff1[0]*diff2[0] + diff1[1]*diff2[1] == 0)
-			{
-				// lines are perpendicular - use a 90 degree turn
-
-				let connectorArea = JSON.parse(JSON.stringify(rightTurnTemplate));
-
-
-
-				for(let k=0; k<4; k++)
-				{	
-					if(doesEntranceLineUpWithExit(destination.entrance, connectorArea.exits[0].line) && 
-						doesEntranceLineUpWithExit(nextExit.line, connectorArea.exits[1].line))
-					{
-						nextExit.connectsTo = dungeons.length;
-						connectorArea.entrance = connectorArea.exits[1].line
-						connectorArea.exits.splice(1,1)[0];
-						connectorArea.exits[0].connectsTo = destinationID;
-						dungeons.push(connectorArea)
-						connectorArea.sprites = [{img: tileIMG, bounds: connectorArea.bounds, type: "tile"}]
-
-
-						continue destinationLoop;
-					}
-
-					if(doesEntranceLineUpWithExit(destination.entrance, connectorArea.exits[1].line) && 
-						doesEntranceLineUpWithExit(nextExit.line, connectorArea.exits[0].line))
-					{
-						nextExit.connectsTo = dungeons.length;
-						connectorArea.entrance = connectorArea.exits[0].line
-						connectorArea.exits.splice(0,1)[0];
-						connectorArea.exits[0].connectsTo = destinationID;
-						dungeons.push(connectorArea)
-						connectorArea.sprites = [{img: tileIMG, bounds: connectorArea.bounds, type: "tile"}]
-						continue destinationLoop;
-					}
-
-					connectorArea = rotateTemplate(connectorArea);
-				}
-
-				throw new Error("Failed to find a good rotation")
-			}
-			else
-			{
-				// u turn
-
-
-				let tooClose = isExitParallelWithExit(destination.entrance, destination) || isExitParallelWithExit(nextExit.line, source)
-				let connectorArea = tooClose ? uTurnLongTemplate : uTurnTemplate;
-
-				connectorArea = JSON.parse(JSON.stringify(connectorArea));
-
-				for(let k=0; k<4; k++)
-				{	
-					if(doesEntranceLineUpWithExit(destination.entrance, connectorArea.exits[0].line) && 
-						doesEntranceLineUpWithExit(nextExit.line, connectorArea.exits[1].line))
-					{
-						let no = Math.floor(rand.random() * 2);
-						let no2 = 1- no;
-
-						nextExit.connectsTo = dungeons.length;
-						connectorArea.entrance = connectorArea.exits[no].line
-						connectorArea.exits.splice(no,1)[0];
-						connectorArea.exits[0].connectsTo = destinationID;
-						dungeons.push(connectorArea)
-						connectorArea.sprites = [{img: tileIMG, bounds: connectorArea.bounds, type: "tile"}]
-						continue destinationLoop;
-					}
-
-					connectorArea = rotateTemplate(connectorArea);
-				}
-
-				throw new Error("Failed to find a good rotation")
-			}		
+			let destination = dungeons[nextExit.connectsTo];
+			let destinationBoundary = destination.entrance;
+			connectDungeons(dungeons, tileIMG, source, nextExit.line, destination, destinationBoundary, false);
 		}
 	}
 
@@ -645,6 +553,153 @@ function generateDungeonMap(nodes, goldRoomNode, rand)
 	// create connectors
 }
 
+function connectDungeons(dungeonArr, tileIMG, dung1, boundary1, dung2, boundary2, twoWay)
+{
+	if(lib.getLineDirection(boundary1) == lib.dirRotate(lib.dirRotate(lib.getLineDirection(boundary2))))
+	{
+		// dungeons line up, connect them directly.
+		let transition = {}
+		transition[0] = {id: dung1.id, line: boundary1};
+		transition[1] = {id: dung2.id, line: boundary2};
+
+		dung1.transitions.push(transition);
+		if(twoWay)
+		{
+			dung2.transitions.push(transition);
+		}
+	}
+	else if (lib.getLineDirection(boundary1) == lib.getLineDirection(boundary2))
+	{
+		// u turn
+		// TODO Find a different way to implement this
+		//let tooClose = isExitParallelWithExit(destination.entrance, destination) || isExitParallelWithExit(nextExit.line, source)
+		//let connectorArea = tooClose ? uTurnLongTemplate : uTurnTemplate;
+		let connectorArea = JSON.parse(JSON.stringify(uTurnLongTemplate));
+		connectorArea.transitions = [];
+
+		for(let k=0; k<4; k++)
+		{	
+			let oppositeDir = lib.dirRotate(lib.dirRotate(lib.getLineDirection(boundary1)));
+
+			if(oppositeDir != lib.getLineDirection(connectorArea.transitionBoundaries[0].line))
+			{
+				connectorArea = rotateTemplate(connectorArea);
+				continue;
+			}
+				
+			let no = 0;
+			let no2 = 1 - no;
+
+			let transitionID = dungeonArr.length;
+			dungeonArr.push(connectorArea);
+
+			let transition1 = {};
+			transition1[0] = {id: dung1.id, line: boundary1};
+			transition1[1] = {id: transitionID, line: connectorArea.transitionBoundaries[no].line};
+
+			transition1.direction = transitionID;
+			dung1.transitions.push(transition1);
+			connectorArea.transitions.push(transition1);
+
+
+			// TODO make it two way
+
+			let transition2 = {};
+			transition2[0] = {id: dung2.id, line: boundary2};
+			transition2[1] = {id: transitionID, line: connectorArea.transitionBoundaries[no2].line};
+
+			transition2.direction = dung2.id;
+			connectorArea.transitions.push(transition2);
+			connectorArea.sprites = [{type: "tile", bounds: connectorArea.bounds, img: tileIMG}]
+			// TODO make it two way
+			return;
+
+			
+		}
+
+		throw new Error("Failed to find a good rotation")
+	}
+	else
+	{
+		let connectorArea = JSON.parse(JSON.stringify(rightTurnTemplate));
+		connectorArea.transitions = [];
+
+		let entrancDir = lib.dirRotate(lib.dirRotate(lib.getLineDirection(boundary1)));
+		let exitDir = lib.dirRotate(lib.dirRotate(lib.getLineDirection(boundary2)));
+
+
+		// 90 degree turn
+		for(let k=0; k<4; k++)
+		{	
+			let connTransBound1 = connectorArea.transitionBoundaries[0].line;
+			let connTransBound2 = connectorArea.transitionBoundaries[1].line;
+
+			if(entrancDir == lib.getLineDirection(connTransBound1) && 
+				exitDir == lib.getLineDirection(connTransBound2))
+			{
+
+				let transition1 = {};
+				let transitionID = dungeonArr.length;
+				dungeonArr.push(connectorArea);
+
+				transition1[0] = {id: dung1.id, line: boundary1};
+				transition1[1] = {id: transitionID, line: connTransBound1};
+
+				transition1.direction = transitionID;
+				dung1.transitions.push(transition1);
+				connectorArea.transitions.push(transition1);
+				// TODO make it two way
+
+				let transition2 = {};
+				transition2[0] = {id: dung2.id, line: boundary2};
+				transition2[1] = {id: transitionID, line: connTransBound2};
+
+				transition2.direction = dung2.id;
+				connectorArea.transitions.push(transition2);
+				connectorArea.sprites = [{type: "tile", bounds: connectorArea.bounds, img: tileIMG}]
+
+				return;
+
+
+				continue;
+			}
+
+			if(entrancDir == lib.getLineDirection(connTransBound2) && 
+				exitDir == lib.getLineDirection(connTransBound1))
+			{
+				let transition1 = {};
+				let transitionID = dungeonArr.length;
+				dungeonArr.push(connectorArea);
+
+				transition1[0] = {id: dung1.id, line: boundary1};
+				transition1[1] = {id: transitionID, line: connTransBound2};
+
+				transition1.direction = transitionID;
+				dung1.transitions.push(transition1);
+				connectorArea.transitions.push(transition1);
+				// TODO make it two way
+
+				let transition2 = {};
+				transition2[0] = {id: dung2.id, line: boundary2};
+				transition2[1] = {id: transitionID, line: connTransBound1};
+
+				transition2.direction = dung2.id;
+				connectorArea.transitions.push(transition2);
+				connectorArea.sprites = [{type: "tile", bounds: connectorArea.bounds, img: tileIMG}]
+
+				return;
+			}
+
+			connectorArea = rotateTemplate(connectorArea);
+		}
+
+		throw new Error("Failed to find a good rotation")
+	}
+}
+
+
+
+
 export function generateDungeon(node_count, seed)
 {
 	seed = seed || new Date().getTime();
@@ -652,12 +707,21 @@ export function generateDungeon(node_count, seed)
 
 	let [nodemap, startStopPoints] = generateNodes(rand,node_count);
 
+	console.log(nodemap.map(x => {return {id: x.id, linksTo: x.linksTo.map(y => y.id)}}));
+
+	nodemap.forEach(x => {x.displayNo = x.id+1});
+
+	let a = nodemap[startStopPoints[0]];
+	let b = nodemap[0];
+	let swap = a.displayNo;
+	a.displayNo = b.displayNo;
+	b.displayNo = swap;
+
 	//totalTorches = node_count;
 
-	let goldRoomNode = {id: node_count, linksTo: [nodemap[startStopPoints[0]]]};
-
+	let goldRoomNode = {id: node_count, displayNo: "E", linksTo: []};
 	nodemap.push(goldRoomNode);
 	nodemap[startStopPoints[1]].linksTo.push(goldRoomNode);
 
-	return {dungeons: generateDungeonMap(nodemap, goldRoomNode, rand), startStopPoints};
+	return {dungeons: convertNodesToDungeon(nodemap, goldRoomNode, rand), startStopPoints};
 }

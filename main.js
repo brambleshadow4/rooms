@@ -60,10 +60,10 @@ engine.addImage("POND","pond.png");
 
 engine.addImage("TAG","tag.png");
 
-engine.addImage("CHAR_U","char/waddleU.png")
-engine.addImage("CHAR_D","char/waddleD.png")
-engine.addImage("CHAR_L","char/waddleL.png")
-engine.addImage("CHAR_R","char/waddleR.png")
+engine.addImage("CHAR_U","pony-char/back-64.png")
+engine.addImage("CHAR_D","pony-char/front-64.png")
+engine.addImage("CHAR_L","pony-char/left-64.png")
+engine.addImage("CHAR_R","pony-char/right-64.png")
 
 engine.addImage("TORCH","torch_01.png")
 engine.addPassiveAnimation("TORCHL", ["torch_02.png","torch_03.png","torch_04.png","torch_05.png"])
@@ -140,6 +140,8 @@ function gameLoop()
 	
 }
 
+
+
 let counter2 = 1;
 
 let labelTarget = null;
@@ -176,16 +178,24 @@ function isPointInAnEntity(point)
 
 function inMazeUpdate()
 {
-	let points = [[x+.4, y+.4], [x-.4, y+.4],[x+.4, y-.4], [x-.4, y-.4]];
+	let points = [[x+.5, y+.5], [x-.5, y+.5],[x+.5, y-.5], [x-.5, y-.5]];
 	let mainRoom = terrain.filter(x => x.isRoom)[0] || {}
 
 	for(let area of terrain)
 	{
-		if(area.type && area.type.endsWith("transition") && area.connectsTo != undefined)
-		{
+		if(area.type && area.type.endsWith("transition"))
+		{	
 			if(points.map(p => lib.isPointInShape(p, localizedBounds(area))).reduce((a,b) => a && b, true))
 			{
-				transitionDungeons(area);
+				if(!area.occupied)
+				{
+					transitionDungeons(area);
+				}
+				area.occupied = true;
+			}
+			else
+			{
+				area.occupied = false;
 			}
 		}
 	}
@@ -219,20 +229,20 @@ function inMazeUpdate()
 
 		for(let area of terrain)
 		{
-			if(area.transition == "out")
+			if(area.transitionZone == "out")
 			{
 				area.fade = transitionPercent;
 			}
-			if(area.transition == "in")
+			if(area.transitionZone == "in")
 			{
 				area.fade = 1 - transitionPercent;
 			}
-			if(area.transition == "left")
+			if(area.transitionZone == "left")
 			{
 				area.left = transitionPercent;
 				area.right = 1- transitionPercent;
 			}
-			if(area.transition == "right")
+			if(area.transitionZone == "right")
 			{
 				area.left = 1- transitionPercent;
 				area.right = transitionPercent;
@@ -247,39 +257,27 @@ function inMazeUpdate()
 
 		if(exitEntityToUpdate)
 		{
-			if(exitEntityToUpdate.arrowEntity)
+			/*if(exitEntityToUpdate.arrowEntity)
 			{
 				exitEntityToUpdate.arrowEntity.visited = true;
 
-
-				let no = allTerrain[inDungeon].isRoom ? (inDungeon) : (allTerrain[inDungeon].exits[0].connectsTo)
-				
-
-				if(no < totalTorches)
-				{
-					exitEntityToUpdate.arrowEntity.label = no+1;
-				}
-				else
-				{
-					exitEntityToUpdate.arrowEntity.label = "E";
-				}
-				
-				
-			}
+				let no = allTerrain[inDungeon].displayNo ? (inDungeon) : (allTerrain[inDungeon].exits[0].connectsTo);
+				exitEntityToUpdate.arrowEntity.label = allTerrain[no].displayNo;		
+			}*/
 			
 			exitEntityToUpdate = null;
 		}
 
 		for(let i=0; i < terrain.length; i++)
 		{
-			if(terrain[i].transition == "out")
+			if(terrain[i].transitionZone == "out")
 			{
 				terrain.splice(i, 1);
 				i--;
 			}
 			else
 			{
-				delete terrain[i].transition;
+				delete terrain[i].transitionZone;
 			}
 		}
 	}
@@ -292,7 +290,7 @@ function inMazeUpdate()
 	if(mainRoom && mainRoom.localCoordinates)
 		lib.addV2([x,y], lib.scaleV2(mainRoom.localCoordinates, -1));
 	
-	let charSize = .4;
+	let charSize = .5;
 	if(KeyPresses["ArrowUp"] 
 		&& isPointInTerrain([x+charSize, y - .08 - charSize + delta]) 
 		&& isPointInTerrain([x-charSize, y - .08 - charSize + delta])
@@ -354,32 +352,55 @@ let dungeonTemplates = [];
 let transitionPercent = -1;
 
 
-
-function buildTransTerrain(localCoordinates, trans, tileIMG)
+// TODO update this function
+function buildTransTerrain(localCoordinates, inRoomID, trans, tileIMG)
 {
-	let lines = trans.line.map(x => lib.addV2(x, localCoordinates));
-	let bounds = [lines[0], lines[1]];
+	let entrance = trans[0].id == inRoomID ? trans[0].line : trans[1].line;
+	
+	entrance = entrance.map(x => lib.addV2(x, localCoordinates));
+
+	let bounds = [entrance[0], entrance[1]]; // first two points fo bounds
 	let typ = "vtransition";
 	let left = 0;
 	let right = 1;
 
-	if(lines[0][0] == lines[1][0])
+	let dir = lib.getLineDirection(entrance);
+
+	if(dir == "up")
 	{
 		typ = "htransition";
-		if(lines[0][1] < lines[1][1])
-		{
-			right = 0;
-			left = 1
-		}
+		right = 0;
+		left = 1
 	}
-	else
+	if(dir == "down")
 	{
-		if(lines[0][0] < lines[1][0])
-		{
-			right = 0;
-			left = 1
-		}
+		typ = "htransition";
+		right = 1;
+		left = 0;
 	}
+	if(dir == "left")
+	{
+		typ = "vtransition";
+		right = 1;
+		left = 0
+	}
+	if(dir == "right")
+	{
+		typ = "vtransition";
+		right = 0;
+		left = 1;
+	}
+
+	
+
+	let diff = lib.addV2(entrance[1], lib.scaleV2(entrance[0], -1)); 
+
+	diff = [diff[1], -diff[0]];
+	bounds.push(lib.addV2(bounds[1], diff));
+
+	diff = lib.addV2(bounds[2], lib.scaleV2(bounds[1], -1));
+	diff = [diff[1], -diff[0]];
+	bounds.push(lib.addV2(bounds[2], diff));
 
 	let area = {
 		bounds,
@@ -389,27 +410,11 @@ function buildTransTerrain(localCoordinates, trans, tileIMG)
 		associatedWithExit: trans
 	}
 
-	let diff = lib.addV2(bounds[1], lib.scaleV2(bounds[0], -1)); 
-
-	diff = [diff[1], -diff[0]];
-	bounds.push(lib.addV2(bounds[1], diff));
-
-	diff = lib.addV2(bounds[2], lib.scaleV2(bounds[1], -1));
-	diff = [diff[1], -diff[0]];
-	bounds.push(lib.addV2(bounds[2], diff));
-
 	area.sprites = [
 		{type: "tile", bounds, img: tileIMG || "GRASS"}
 	]
 
-	if(trans.connectsTo != undefined)
-	{
-		area.connectsTo = trans.connectsTo;
-		area.connectsToLine = [bounds[2], bounds[3]];
-	}
-
-
-
+	area.transition = trans;
 	return area;
 }
 
@@ -435,9 +440,9 @@ function loadDungeon(dungeonNo)
 	//if(dungeon.entrance)
 	//	terrain.push(buildTransTerrain({line: dungeon.entrance}, tileIMG));
 
-	for(let exit of dungeon.exits)
+	for(let transition of dungeon.transitions)
 	{
-		terrain.push(buildTransTerrain([0,0], exit, tileIMG));
+		terrain.push(buildTransTerrain([0,0], dungeonNo, transition, tileIMG));
 	}
 }
 
@@ -445,57 +450,66 @@ var exitEntityToUpdate = null;
 
 function transitionDungeons(transitionArea)
 {
-	let loadedTerrain = allTerrain[transitionArea.connectsTo];
+	let option1 = transitionArea.transition[0];
+	let option2 = transitionArea.transition[1];
 
-	console.log("Loading " + transitionArea.connectsTo);
-	inDungeon = transitionArea.connectsTo;
+	let idAndLine = inDungeon == option1.id ? option2 : option1;
+	let entrance = inDungeon == option1.id ? option1.line : option2.line;
 
-	exitEntityToUpdate = transitionArea.associatedWithExit;
+	let entranceInLocal = lib.addV2(entrance[0], allTerrain[inDungeon].localCoordinates);
+	
+
+	let diff = lib.addV2(entrance[1], lib.scaleV2(entrance[0], -1)); 
+	diff = lib.addV2(diff, [diff[1], -diff[0] ])
+
+	let exitInLocal = lib.addV2(entranceInLocal, diff);
+
+	let loadedTerrain = allTerrain[idAndLine.id];
+
+	console.log(loadedTerrain);
+	console.log(idAndLine.id)
+
+	inDungeon = idAndLine.id;
 
 
-	loadedTerrain.localCoordinates = lib.addV2(transitionArea.connectsToLine[0], lib.scaleV2(loadedTerrain.entrance[0], -1));
-	let diff = loadedTerrain.localCoordinates;
-
+	loadedTerrain.localCoordinates = lib.addV2(exitInLocal, lib.scaleV2(idAndLine.line[0], -1));
+	
+	
 	// should be refactored
-	/*copy.sprites.forEach(s => {
-		s.bounds = s.bounds.map(p => lib.addV2(p, diff))
-		if(s.img == "TORCH" && litTorches.has(inDungeon))
-		{
-			s.img = "TORCHL";
-		}
-	});*/
 
 	for(let area of terrain)
 	{
-		area.transition = "out";
+		area.transitionZone = "out";
+
 		if(area == transitionArea && area.left == 1)
 		{
-			area.transition = "right";
+			area.transitionZone = "right";
 		}
 		if(area == transitionArea && area.right == 1)
 		{
-			area.transition = "left";
+			area.transitionZone = "left";
 		}
 	}
 
 	transitionPercent = 0;
 
-	loadedTerrain.transition = "in";
+	loadedTerrain.transitionZone = "in";
 	terrain.push(loadedTerrain);
 
 
 	let tileIMG = loadedTerrain.sprites.filter(x => x.type == "tile").map(x => x.img)[0] || null;
 	
-	for(let exit of loadedTerrain.exits)
-	{
-		let area = buildTransTerrain(diff, exit, tileIMG);
-		area.transition = "in";
-		area.exit = exit; 
-		terrain.push(area);
-	}
+	let transCreated = 0;
+	for(let transition of loadedTerrain.transitions)
+	{	
+		if(transition == transitionArea.transition)
+			continue;
 
-	delete transitionArea.connectsTo;
-	delete transitionArea.connectsToLine;
+		let area = buildTransTerrain(loadedTerrain.localCoordinates, inDungeon, transition, tileIMG);
+		area.transitionZone = "in";
+		terrain.push(area);
+		transCreated++;
+	}
 }
 
 let inDungeon = -1;
@@ -509,7 +523,7 @@ function isPointInTerrain(point)
 {
 	for(let area of terrain)
 	{	
-		if(area.transition == "out")
+		if(area.transitionZone == "out")
 			continue;
 
 		if(lib.isPointInShape(point, localizedBounds(area)))
@@ -724,7 +738,7 @@ function inMazeDraw()
 
 	// draw character
 
-	ctx.drawImage(engine.getSprite("CHAR_" + charDir), CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20); 
+	ctx.drawImage(engine.getSprite("CHAR_" + charDir), CANVAS_WIDTH/2-57, CANVAS_HEIGHT/2-33); 
 	ctx.globalCompositeOperation = "source-over";
 	ctx.fillStyle = "#0000FF";
 	//ctx.fillRect(CANVAS_WIDTH/2-20, CANVAS_HEIGHT/2-20, 40, 40)
@@ -826,3 +840,13 @@ function inMazeDraw()
 }
 
 gameLoop();
+
+inIntroScreen = false;
+var maze2 = generateDungeon(5, 20260113);
+totalTorches = 5;
+allTerrain = maze2.dungeons;
+startStopPoints = maze2.startStopPoints;
+
+console.log(maze2)
+
+loadDungeon(startStopPoints[0]);

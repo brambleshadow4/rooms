@@ -1,3 +1,5 @@
+
+/** @typedef {[Number, Number]} Vec2 */
 export function addV2(v1, v2)
 {
 	if(!isVector(v1)){
@@ -18,12 +20,56 @@ function isVector(v)
 	return true;
 }
 
+export function getLineDirection(line)
+{
+	console.log(line)
+	let [p1, p2] = line;
+	let dx = p2[0] - p1[0];
+	let dy = p2[1] - p1[1];
+	if(dx == 0 && dy == 0)
+	{
+		throw new Error("Invalid line");
+	}
+	if(dy == 0)
+	{
+		// dx > 0    --->
+		return dx > 0 ? "right" : "left";
+	}
+	else
+	{
+		return dy > 0 ? "up" : "down";
+	}
+}
 
+export function dirRotate(dir)
+{
+	let dirs = ["right", "down", "left", "up"];
+	let i = dirs.indexOf(dir);
+	return dirs[(i + 1) % 4];
+}
+export function dirRevRotate(dir)
+{
+	let dirs = ["right", "up", "left", "down"];
+	let i = dirs.indexOf(dir);
+	return dirs[(i + 1) % 4];
+}
+
+
+/**
+ * @param {Vec2} v1
+ * @param {Vec2} v2
+ * @returns {Vec2}
+ */
 export function equalV2(v1,v2)
 {
 	return v1[0] == v2[0] && v1[1] == v2[1]
 }
 
+/**
+ * @param {Vec2} x - The point
+ * @param {Number} n - the amount to scale by
+ * @returns {Vec2}
+ */
 export function scaleV2(v, n)
 {
 	if(!isVector(v)){
